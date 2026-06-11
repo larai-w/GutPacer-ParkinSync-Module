@@ -2,8 +2,7 @@
 ### // 腸のペースを整える排便トラッカー // Module of ParkinSync
 
 <p align="center">
-  <img width="200" height="200" alt="GutPacer Logo" src="
-    https://github.com/user-attachments/assets/870c4a26-ec06-47b0-a015-ce38759197df" />
+  <img width="200" height="200" alt="GutPacer Logo" src="https://github.com/user-attachments/assets/69034e7e-76bf-441f-82c8-bffcbe87050f" />
 </p>
 
 ---
