@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GutPacer // 腸のペースを整える排便トラッカー</title>
-    <!-- Tailwind CSS (CDN版) -->
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <!-- FontAwesome (アイコン用) ※rel="stylesheet"に直しました！ -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         -webkit-tap-highlight-color: transparent;
@@ -14,7 +12,6 @@
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans min-h-screen pb-12">
 
-    <!-- ヘッダーエリア -->
     <header class="bg-white border-b border-slate-200 py-6 px-4 text-center shadow-xs">
         <div class="flex flex-col items-center justify-center gap-2">
             <div class="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-800 rounded-2xl shadow-md flex items-center justify-center text-white text-3xl">
@@ -27,28 +24,24 @@
 
     <main class="max-w-md mx-auto px-4 mt-6 space-y-4">
 
-        <!-- 🚨 浣腸アラート（最後の排便から自動計算） -->
         <section class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 text-center space-y-1.5">
             <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">現在の排便ステータス (Status)</div>
             <div id="lastStoolDisplay" class="flex justify-center items-center">
-                <!-- JavaScriptでアラートが自動表示 -->
+                <span class="text-slate-400 text-xs animate-pulse">データを読み込み中...</span>
             </div>
         </section>
 
-        <!-- 📅 基本情報（日付 ＆ その日の調子） -->
         <section class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-4">
             <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
                 <span class="text-xl">📅</span> Daily Status (基本情報)
             </h2>
             <hr class="border-slate-100">
 
-            <!-- 日にち選択 -->
             <div class="space-y-2">
                 <label class="text-xs font-bold text-slate-500 uppercase tracking-wider block">日にち (Date)</label>
                 <input type="date" id="logDate" class="w-full bg-slate-50 border-2 border-slate-200 rounded-xl py-3 px-3 font-bold text-slate-700 focus:border-indigo-500 focus:outline-hidden transition-all">
             </div>
 
-            <!-- その日の調子 -->
             <div class="space-y-2">
                 <label class="text-xs font-bold text-slate-500 uppercase tracking-wider block">その日の調子 (Condition: 1〜5)</label>
                 <div class="grid grid-cols-5 gap-2">
@@ -61,7 +54,6 @@
             </div>
         </section>
 
-        <!-- 💩 排便トラッカーセクション -->
         <section class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-4">
             <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
                 <span class="text-xl">💩</span> Bowel Tracker (排便記録)
@@ -88,7 +80,6 @@
                 </select>
             </div>
 
-            <!-- 処置・サポートの選択 -->
             <div class="space-y-2 pt-2 border-t border-slate-100">
                 <label class="text-xs font-bold text-slate-500 uppercase tracking-wider block">医療処置・サポート (Medical Care)</label>
                 <div class="grid grid-cols-2 gap-2">
@@ -104,7 +95,6 @@
             </div>
         </section>
 
-        <!-- 💊 モヴィコール服用セクション -->
         <section class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-4">
             <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
                 <span class="text-xl">💊</span> Medication Tracker (モヴィコール)
@@ -129,7 +119,6 @@
             </div>
         </section>
 
-        <!-- 📝 ノートセクション -->
         <section class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-4">
             <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
                 <span class="text-xl">📝</span> Notes (ノート)
@@ -138,31 +127,27 @@
             <textarea id="logNotes" rows="3" placeholder="様子の変化、お腹の張り、メモなどを自由に入力してください..." class="w-full bg-slate-50 border-2 border-slate-200 rounded-xl py-3 px-3 font-medium text-slate-700 focus:border-indigo-500 focus:outline-hidden transition-all resize-none"></textarea>
         </section>
 
-        <!-- 保存ボタン -->
-        <button type="button" onclick="saveGutLog()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl shadow-md active:scale-[0.99] transition-all flex items-center justify-center gap-2 text-base">
+        <button type="button" id="saveBtn" onclick="saveGutLog()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl shadow-md active:scale-[0.99] transition-all flex items-center justify-center gap-2 text-base disabled:bg-slate-400">
             <i class="fa-solid fa-cloud-arrow-up"></i> 記録を保存する (Save Log)
         </button>
 
-        <!-- 📊 履歴表示セクション -->
         <section class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-4">
-            <div class="flex items-center justify-between">
-                <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
-                    <span class="text-xl">📊</span> 履歴 (History)
-                </h2>
-                <button type="button" onclick="clearLogs()" class="text-xs text-red-500 hover:text-red-700 font-medium">
-                    <i class="fa-solid fa-trash-can"></i> 全消去
-                </button>
-            </div>
+            <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                <span class="text-xl">📊</span> 履歴 (History)
+            </h2>
             <hr class="border-slate-100">
 
             <div id="logHistoryList" class="space-y-3 max-h-96 overflow-y-auto pr-1 text-sm text-slate-500">
-                <p class="text-center py-4 text-slate-400">まだ記録がありません</p>
+                <p class="text-center py-4 text-slate-400">履歴を読み込み中...</p>
             </div>
         </section>
 
     </main>
 
     <script>
+        // 🛠️ 【超重要】ここに先ほどLambdaで発行された「関数URL」をペタッと貼り付けてください！
+        const API_URL = "https://4wrhxfm3czalju5rq3ypb7clai0txdrf.lambda-url.us-east-1.on.aws/";
+
         let selectedAmountValue = '';
         let selectedConditionValue = 0;
 
@@ -173,7 +158,8 @@
             const dd = String(today.getDate()).padStart(2, '0');
             document.getElementById('logDate').value = `${yyyy}-${mm}-${dd}`;
 
-            displayLogs();
+            // サーバーからデータを取ってくる
+            fetchLogsFromServer();
         };
 
         function selectCondition(score, element) {
@@ -233,7 +219,21 @@
             displayElem.innerHTML = `<span class="${badgeClass} px-4 py-2 rounded-xl text-xs sm:text-sm tracking-wide shadow-xs block w-full text-center">${text}</span>`;
         }
 
-        function saveGutLog() {
+        // 📡 【新機能】AWSから履歴データを取得する
+        async function fetchLogsFromServer() {
+            try {
+                const response = await fetch(API_URL);
+                if (!response.ok) throw new Error('サーバーエラー');
+                const logs = await response.json();
+                displayLogs(logs);
+            } catch (error) {
+                console.error(error);
+                document.getElementById('logHistoryList').innerHTML = '<p class="text-center py-4 text-rose-500 font-bold">サーバーからデータを取得できませんでした</p>';
+            }
+        }
+
+        // 📡 【新機能】AWSにデータを送信・保存する
+        async function saveGutLog() {
             const rawDate = document.getElementById('logDate').value;
             if (!rawDate) {
                 alert('日付を選択してください');
@@ -262,30 +262,39 @@
                 notes: document.getElementById('logNotes').value.trim()
             };
 
-            let existingLogs = JSON.parse(localStorage.getItem('gutpacer_logs')) || [];
-            
-            const existingIndex = existingLogs.findIndex(item => item.fullDate === rawDate);
-            if (existingIndex !== -1) {
-                existingLogs[existingIndex] = logEntry;
-            } else {
-                existingLogs.unshift(logEntry);
+            const saveBtn = document.getElementById('saveBtn');
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> 保存中...';
+
+            try {
+                // Lambdaに関数URL経由でPOST送信！
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(logEntry)
+                });
+
+                if (!response.ok) throw new Error('保存に失敗しました');
+
+                alert('AWSサーバーに記録を保存しました！');
+                resetForm();
+                // 保存が成功したら最新のデータをサーバーから再取得して画面を更新
+                await fetchLogsFromServer();
+            } catch (error) {
+                alert('エラー: ' + error.message);
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> 記録を保存する (Save Log)';
             }
-
-            existingLogs.sort((a, b) => new Date(b.fullDate) - new Date(a.fullDate));
-            localStorage.setItem('gutpacer_logs', JSON.stringify(existingLogs));
-
-            resetForm();
-            displayLogs();
-            alert('記録を保存しました！');
         }
 
-        function displayLogs() {
+        // 履歴の描画処理
+        function displayLogs(existingLogs) {
             const logHistoryList = document.getElementById('logHistoryList');
-            let existingLogs = JSON.parse(localStorage.getItem('gutpacer_logs')) || [];
 
             updateLastStoolDisplay(existingLogs);
 
-            if (existingLogs.length === 0) {
+            if (!existingLogs || existingLogs.length === 0) {
                 logHistoryList.innerHTML = '<p class="text-center py-4 text-slate-400">まだ記録がありません</p>';
                 return;
             }
@@ -366,13 +375,6 @@
             document.getElementById('medNoon').checked = false;
             document.getElementById('medEvening').checked = false;
             document.getElementById('logNotes').value = '';
-        }
-
-        function clearLogs() {
-            if (confirm('すべての履歴を消去します。よろしいですか？')) {
-                localStorage.removeItem('gutpacer_logs');
-                displayLogs();
-            }
         }
     </script>
 </body>
