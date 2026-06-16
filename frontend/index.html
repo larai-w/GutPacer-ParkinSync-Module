@@ -6,6 +6,8 @@
     <title>GutPacer // 腸のペースを整える排便トラッカー</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         -webkit-tap-highlight-color: transparent;
     </style>
@@ -132,9 +134,14 @@
         </button>
 
         <section class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-4">
-            <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
-                <span class="text-xl">📊</span> 履歴 (History)
-            </h2>
+            <div class="flex items-center justify-between">
+                <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                    <span class="text-xl">📊</span> 履歴 (History)
+                </h2>
+                <button type="button" id="pdfBtn" onclick="exportHistoryToPDF()" class="bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs py-2 px-3 rounded-xl border border-rose-200 active:scale-95 transition-all flex items-center gap-1.5 disabled:opacity-50">
+                    <i class="fa-solid fa-file-pdf"></i> PDF出力
+                </button>
+            </div>
             <hr class="border-slate-100">
 
             <div id="logHistoryList" class="space-y-3 max-h-96 overflow-y-auto pr-1 text-sm text-slate-500">
@@ -144,9 +151,12 @@
 
     </main>
 
+    <div id="pdfReportContent" style="position: absolute; left: -9999px; top: 0; width: 780px; background: #ffffff; padding: 32px; font-family: 'Hiragino Sans', 'Yu Gothic', sans-serif; color: #1e293b;"></div>
+
     <script>
         let selectedAmountValue = '';
         let selectedConditionValue = 0;
+        let currentLogs = [];
 
         window.onload = function() {
             const today = new Date();
@@ -289,6 +299,7 @@
         function displayLogs(existingLogs) {
             const logHistoryList = document.getElementById('logHistoryList');
 
+            currentLogs = existingLogs || [];
             updateLastStoolDisplay(existingLogs);
 
             if (!existingLogs || existingLogs.length === 0) {
@@ -372,6 +383,107 @@
             document.getElementById('medNoon').checked = false;
             document.getElementById('medEvening').checked = false;
             document.getElementById('logNotes').value = '';
+        }
+
+        // 📄 履歴を印刷用HTMLに整形する（PDF化対象）
+        function buildPdfReportHtml(logs) {
+            const generatedAt = new Date().toLocaleString('ja-JP');
+
+            let rows = '';
+            logs.forEach(log => {
+                const stars = log.condition > 0
+                    ? '★'.repeat(log.condition) + '☆'.repeat(5 - log.condition)
+                    : 'ー';
+                const bowelText = log.hasStool
+                    ? `あり（${log.bowel.amount}・${log.bowel.type}）`
+                    : 'なし';
+                const careList = [];
+                if (log.enema) careList.push('浣腸');
+                if (log.manualHelp) careList.push('摘便ヘルプ');
+                const medList = [];
+                if (log.meds.morning) medList.push('朝');
+                if (log.meds.noon) medList.push('昼');
+                if (log.meds.evening) medList.push('夜');
+
+                rows += `
+                    <tr style="border-bottom: 1px solid #e2e8f0;">
+                        <td style="padding: 8px; font-weight: bold; white-space: nowrap;">${log.date}</td>
+                        <td style="padding: 8px;">${stars}</td>
+                        <td style="padding: 8px;">${bowelText}</td>
+                        <td style="padding: 8px;">${careList.join('・') || 'ー'}</td>
+                        <td style="padding: 8px;">${medList.join('・') || '未服用'}</td>
+                        <td style="padding: 8px; white-space: pre-wrap;">${log.notes || ''}</td>
+                    </tr>`;
+            });
+
+            return `
+                <h1 style="font-size: 20px; font-weight: bold; margin: 0 0 4px;">GutPacer 排便・服薬記録レポート</h1>
+                <p style="font-size: 11px; color: #64748b; margin: 0 0 20px;">作成日時: ${generatedAt} ／ Module of ParkinSync</p>
+                <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                    <thead>
+                        <tr style="background: #eef2ff; text-align: left;">
+                            <th style="padding: 8px;">日付</th>
+                            <th style="padding: 8px;">調子</th>
+                            <th style="padding: 8px;">排便</th>
+                            <th style="padding: 8px;">処置</th>
+                            <th style="padding: 8px;">服薬</th>
+                            <th style="padding: 8px;">メモ</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>`;
+        }
+
+        // 📄 履歴をPDFファイルとして出力する
+        async function exportHistoryToPDF() {
+            if (!currentLogs || currentLogs.length === 0) {
+                alert('出力できる履歴がありません');
+                return;
+            }
+
+            const pdfBtn = document.getElementById('pdfBtn');
+            const originalLabel = pdfBtn.innerHTML;
+            pdfBtn.disabled = true;
+            pdfBtn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> 生成中...';
+
+            try {
+                const container = document.getElementById('pdfReportContent');
+                container.innerHTML = buildPdfReportHtml(currentLogs);
+
+                const canvas = await html2canvas(container, { scale: 2, useCORS: true });
+                const imgData = canvas.toDataURL('image/png');
+
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const pageWidth = pdf.internal.pageSize.getWidth();
+                const pageHeight = pdf.internal.pageSize.getHeight();
+                const imgWidth = pageWidth;
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+                let heightLeft = imgHeight;
+                let position = 0;
+
+                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                heightLeft -= pageHeight;
+
+                while (heightLeft > 0) {
+                    position = heightLeft - imgHeight;
+                    pdf.addPage();
+                    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                    heightLeft -= pageHeight;
+                }
+
+                const today = new Date();
+                const yyyy = today.getFullYear();
+                const mm = String(today.getMonth() + 1).padStart(2, '0');
+                const dd = String(today.getDate()).padStart(2, '0');
+                pdf.save(`GutPacer_Report_${yyyy}${mm}${dd}.pdf`);
+            } catch (error) {
+                alert('PDF生成に失敗しました: ' + error.message);
+            } finally {
+                pdfBtn.disabled = false;
+                pdfBtn.innerHTML = originalLabel;
+            }
         }
     </script>
 </body>
