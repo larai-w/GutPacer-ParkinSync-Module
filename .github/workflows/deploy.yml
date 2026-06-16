@@ -24,7 +24,7 @@ jobs:
 
       - name: Sync frontend to S3
         run: |
-          aws s3 sync frontend/ s3://${{ secrets.AWS_S3_BUCKET }} --delete
+          aws s3 sync frontend/ s3://${{ secrets.AWS_S3_BUCKET }} --delete --exclude "gutpacer/config.js"
 
       - name: Invalidate CloudFront cache
         run: |
