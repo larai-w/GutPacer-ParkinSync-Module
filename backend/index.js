@@ -1,5 +1,5 @@
 const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
-const { DynamoDBDocumentClient, PutCommand, ScanCommand } = require("@aws-sdk/lib-dynamodb");
+const { DynamoDBDocumentClient, PutCommand, ScanCommand, DeleteCommand } = require("@aws-sdk/lib-dynamodb");
 
 const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
@@ -10,7 +10,7 @@ exports.handler = async (event) => {
     const headers = {
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+        "Access-Control-Allow-Methods": "GET,POST,DELETE,OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type"
     };
 
@@ -47,6 +47,19 @@ exports.handler = async (event) => {
             const sortedItems = (result.Items || []).sort((a, b) => new Date(b.fullDate) - new Date(a.fullDate));
 
             return { statusCode: 200, headers, body: JSON.stringify(sortedItems) };
+        }
+
+        // 【3. 記録の削除処理 (DELETE)】
+        if (method === "DELETE") {
+            const fullDate = event.queryStringParameters?.fullDate;
+            if (!fullDate) {
+                return { statusCode: 400, headers, body: JSON.stringify({ error: "fullDate が必要です" }) };
+            }
+            await docClient.send(new DeleteCommand({
+                TableName: TABLE_NAME,
+                Key: { fullDate }
+            }));
+            return { statusCode: 200, headers, body: JSON.stringify({ message: "削除しました" }) };
         }
 
         return { statusCode: 405, headers, body: JSON.stringify({ error: "許可されていない動きです" }) };
