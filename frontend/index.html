@@ -133,6 +133,19 @@
             <i class="fa-solid fa-cloud-arrow-up"></i> 記録を保存する (Save Log)
         </button>
 
+        <section class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+            <div class="flex items-center justify-between">
+                <div>
+                    <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">場所設定 (Location)</div>
+                    <div id="locationLabel" class="font-bold text-slate-400 text-sm">読み込み中...</div>
+                </div>
+                <button id="locationToggleBtn" type="button" onclick="onLocationToggle()"
+                    class="relative w-16 h-8 rounded-full transition-colors duration-300 focus:outline-none bg-slate-300">
+                    <span id="toggleDot" class="absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow-sm transition-all duration-300"></span>
+                </button>
+            </div>
+        </section>
+
         <section class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-4">
             <div class="flex items-center justify-between">
                 <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
@@ -166,9 +179,53 @@
             const dd = String(today.getDate()).padStart(2, '0');
             document.getElementById('logDate').value = `${yyyy}-${mm}-${dd}`;
 
-            // サーバーからデータを取ってくる
             fetchLogsFromServer();
+            loadSettings();
         };
+
+        // 場所設定をサーバーから取得して反映する
+        async function loadSettings() {
+            const cached = localStorage.getItem('gutpacer_location');
+            if (cached) applyLocationSetting(cached);
+            try {
+                const res = await fetch(API_URL + '?action=getSettings');
+                if (!res.ok) throw new Error();
+                const data = await res.json();
+                localStorage.setItem('gutpacer_location', data.location);
+                applyLocationSetting(data.location);
+            } catch (e) {
+                if (!cached) applyLocationSetting('home');
+            }
+        }
+
+        // トグルの見た目と表示ラベルを切り替える
+        function applyLocationSetting(location) {
+            const btn = document.getElementById('locationToggleBtn');
+            const dot = document.getElementById('toggleDot');
+            const label = document.getElementById('locationLabel');
+            const isHome = location === 'home';
+            btn.className = `relative w-16 h-8 rounded-full transition-colors duration-300 focus:outline-none ${isHome ? 'bg-emerald-500' : 'bg-blue-500'}`;
+            dot.className = `absolute top-1 w-6 h-6 bg-white rounded-full shadow-sm transition-all duration-300 ${isHome ? 'left-1' : 'left-9'}`;
+            label.textContent = isHome ? '🏠 自宅' : '🏥 施設';
+            label.className = `font-bold text-sm ${isHome ? 'text-emerald-700' : 'text-blue-700'}`;
+        }
+
+        // トグルボタンを押したとき
+        async function onLocationToggle() {
+            const current = localStorage.getItem('gutpacer_location') || 'home';
+            const next = current === 'home' ? 'facility' : 'home';
+            localStorage.setItem('gutpacer_location', next);
+            applyLocationSetting(next);
+            try {
+                await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'saveSettings', location: next })
+                });
+            } catch (e) {
+                console.error('設定の保存に失敗しました', e);
+            }
+        }
 
         function selectCondition(score, element) {
             document.querySelectorAll('.cond-btn').forEach(btn => {
