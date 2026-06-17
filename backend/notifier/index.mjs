@@ -1,6 +1,6 @@
 import https from "https";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, GetCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, GetCommand } from "@aws-sdk/lib-dynamodb";
 
 const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
@@ -18,6 +18,19 @@ function getJSTDate(offsetDays = 0) {
     return jst.toISOString().split("T")[0];
 }
 
+async function getLog(dateStr) {
+    try {
+        const result = await docClient.send(new GetCommand({
+            TableName: TABLE_NAME,
+            Key: { fullDate: dateStr }
+        }));
+        return result.Item ?? null;
+    } catch (e) {
+        console.error("DynamoDB getLog failed for", dateStr, e.message);
+        return null;
+    }
+}
+
 function sendLineMessage(messages) {
     return new Promise((resolve, reject) => {
         const payload = JSON.stringify({ to: LINE_USER_ID, messages });
@@ -27,7 +40,7 @@ function sendLineMessage(messages) {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "Authorization": `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
+                "Authorization": "Bearer " + LINE_CHANNEL_ACCESS_TOKEN,
                 "Content-Length": Buffer.byteLength(payload)
             }
         };
@@ -48,13 +61,13 @@ function sendLineMessage(messages) {
 function buildAppButton(label, color) {
     return {
         type: "button",
-        action: { type: "uri", label, uri: APP_URL },
+        action: { type: "uri", label: label, uri: APP_URL },
         style: "primary",
-        color
+        color: color
     };
 }
 
-function buildNoRecordMessage() {
+function buildReminderMessage() {
     return {
         type: "flex",
         altText: "GutPacer: 昨日の記録がまだありません",
@@ -96,10 +109,10 @@ function buildNoRecordMessage() {
     };
 }
 
-function buildEnemaAlertMessage(daysSinceLastStool) {
+function buildWarningMessage(missingDays) {
     return {
         type: "flex",
-        altText: `GutPacer: 排便アラート (${daysSinceLastStool}日経過)`,
+        altText: "GutPacer: " + missingDays + "日間記録がありません",
         contents: {
             type: "bubble",
             header: {
@@ -109,7 +122,7 @@ function buildEnemaAlertMessage(daysSinceLastStool) {
                 paddingAll: "16px",
                 contents: [{
                     type: "text",
-                    text: "🚨 排便アラート",
+                    text: "⚠️ " + missingDays + "日間記録がありません",
                     weight: "bold",
                     color: "#ffffff",
                     size: "md",
@@ -122,7 +135,7 @@ function buildEnemaAlertMessage(daysSinceLastStool) {
                 paddingAll: "16px",
                 contents: [{
                     type: "text",
-                    text: `最後の排便から${daysSinceLastStool}日以上経過しています。今日、訪問看護師さんやデイケアに浣腸をお願いしてください。`,
+                    text: missingDays + "日間記録がありません。体調はどうですか？",
                     wrap: true,
                     size: "sm",
                     color: "#374151"
@@ -139,7 +152,7 @@ function buildEnemaAlertMessage(daysSinceLastStool) {
 }
 
 export const handler = async () => {
-    // Step 1: Check location setting
+    // 1. 居住環境チェック（施設なら通知しない）
     let location = "home";
     try {
         const settingResult = await docClient.send(new GetCommand({
@@ -156,63 +169,38 @@ export const handler = async () => {
         return { statusCode: 200, body: "Skipped (facility)" };
     }
 
-    const today = getJSTDate(0);
+    // 2. 直近2日間の記録を確認（在宅の場合のみ）
     const yesterday = getJSTDate(-1);
+    const dayBefore = getJSTDate(-2);
 
-    // Step 2: Check if yesterday's record exists
-    let yesterdayLog = null;
-    try {
-        const result = await docClient.send(new GetCommand({
-            TableName: TABLE_NAME,
-            Key: { fullDate: yesterday }
-        }));
-        yesterdayLog = result.Item;
-    } catch (e) {
-        console.error("Failed to fetch yesterday's log:", e.message);
+    const yesterdayLog = await getLog(yesterday);
+
+    if (yesterdayLog !== null) {
+        console.log("Record found for yesterday - no notification needed");
+        return { statusCode: 200, body: "No notification needed" };
     }
 
-    if (!yesterdayLog) {
-        console.log("No record for yesterday - sending reminder");
-        await sendLineMessage([buildNoRecordMessage()]);
-        return { statusCode: 200, body: "Sent: no record reminder" };
+    const dayBeforeLog = await getLog(dayBefore);
+
+    if (dayBeforeLog === null) {
+        // 昨日も一昨日も記録なし → 連続日数を算出して警告
+        let missingDays = 2;
+        while (missingDays < 7) {
+            const older = getJSTDate(-(missingDays + 1));
+            const olderLog = await getLog(older);
+            if (olderLog === null) {
+                missingDays++;
+            } else {
+                break;
+            }
+        }
+        console.log(missingDays + " days without records - sending warning");
+        await sendLineMessage([buildWarningMessage(missingDays)]);
+        return { statusCode: 200, body: "Sent: " + missingDays + "-day warning" };
     }
 
-    // Step 3: Scan all logs to evaluate stool pattern
-    let allLogs = [];
-    try {
-        const scanResult = await docClient.send(new ScanCommand({ TableName: TABLE_NAME }));
-        allLogs = (scanResult.Items || [])
-            .filter(log => log.fullDate < today)
-            .sort((a, b) => (a.fullDate > b.fullDate ? -1 : 1)); // newest first
-    } catch (e) {
-        console.error("Scan failed:", e.message);
-        return { statusCode: 500, body: "Scan failed" };
-    }
-
-    const lastStoolLog = allLogs.find(log => log.hasStool === true);
-
-    if (!lastStoolLog) {
-        console.log("No stool records found at all - skipping");
-        return { statusCode: 200, body: "No stool history - skipping" };
-    }
-
-    // Calculate days since last stool (in JST)
-    const lastStoolMs = new Date(lastStoolLog.fullDate + "T00:00:00+09:00").getTime();
-    const todayMs = new Date(today + "T00:00:00+09:00").getTime();
-    const daysSinceLastStool = Math.floor((todayMs - lastStoolMs) / (1000 * 60 * 60 * 24));
-
-    // Condition: 2+ days since last stool OR 2 consecutive logged days with hasStool:false
-    const twoConsecutiveFalse =
-        allLogs.length >= 2 &&
-        allLogs[0].hasStool === false &&
-        allLogs[1].hasStool === false;
-
-    if (daysSinceLastStool >= 2 || twoConsecutiveFalse) {
-        console.log(`Alert triggered: ${daysSinceLastStool} days since last stool, twoConsecutiveFalse=${twoConsecutiveFalse}`);
-        await sendLineMessage([buildEnemaAlertMessage(daysSinceLastStool)]);
-        return { statusCode: 200, body: `Sent: enema alert (${daysSinceLastStool} days)` };
-    }
-
-    console.log(`All clear: last stool ${daysSinceLastStool} day(s) ago`);
-    return { statusCode: 200, body: "No notification needed" };
+    // 昨日だけ記録なし → 通常の催促通知
+    console.log("No record for yesterday only - sending reminder");
+    await sendLineMessage([buildReminderMessage()]);
+    return { statusCode: 200, body: "Sent: reminder" };
 };
