@@ -32,16 +32,8 @@ jobs:
             --delete \
             --exclude "config.js"
 
-      - name: Verify S3 sync result
-        run: |
-          echo "--- gutpacer/ contents ---"
-          aws s3 ls "s3://${{ secrets.AWS_S3_BUCKET }}/gutpacer/" --recursive
-
       - name: Invalidate CloudFront cache
         run: |
-          echo "Distribution ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}"
-          INVALIDATION=$(aws cloudfront create-invalidation \
+          aws cloudfront create-invalidation \
             --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
-            --paths "/gutpacer/*" \
-            --output json)
-          echo "$INVALIDATION"
+            --paths "/gutpacer/*"
