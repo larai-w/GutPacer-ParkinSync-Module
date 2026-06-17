@@ -28,7 +28,7 @@ jobs:
       - name: Sync frontend to S3
         run: |
           aws --version
-          aws s3 sync frontend/ "s3://${{ secrets.AWS_S3_BUCKET }}/gutpacer/" \
+          aws s3 sync frontend/ "s3://${{ secrets.AWS_S3_BUCKET }}" \
             --delete \
             --exclude "config.js"
 
