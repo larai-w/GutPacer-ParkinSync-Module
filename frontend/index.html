@@ -179,24 +179,8 @@
             const dd = String(today.getDate()).padStart(2, '0');
             document.getElementById('logDate').value = `${yyyy}-${mm}-${dd}`;
 
-            fetchLogsFromServer();
-            loadSettings();
+            fetchDataFromServer();
         };
-
-        // 場所設定をサーバーから取得して反映する
-        async function loadSettings() {
-            const cached = localStorage.getItem('gutpacer_location');
-            if (cached) applyLocationSetting(cached);
-            try {
-                const res = await fetch(API_URL + '?action=getSettings');
-                if (!res.ok) throw new Error();
-                const data = await res.json();
-                localStorage.setItem('gutpacer_location', data.location);
-                applyLocationSetting(data.location);
-            } catch (e) {
-                if (!cached) applyLocationSetting('home');
-            }
-        }
 
         // トグルの見た目と表示ラベルを切り替える
         function applyLocationSetting(location) {
@@ -284,13 +268,15 @@
             displayElem.innerHTML = `<span class="${badgeClass} px-4 py-2 rounded-xl text-xs sm:text-sm tracking-wide shadow-sm block w-full text-center">${text}</span>`;
         }
 
-        // 📡 【新機能】AWSから履歴データを取得する
-        async function fetchLogsFromServer() {
+        // ログと場所設定を一括取得する
+        async function fetchDataFromServer() {
             try {
                 const response = await fetch(API_URL);
                 if (!response.ok) throw new Error('サーバーエラー');
-                const logs = await response.json();
-                displayLogs(logs);
+                const data = await response.json();
+                displayLogs(data.logs);
+                applyLocationSetting(data.location ?? 'home');
+                localStorage.setItem('gutpacer_location', data.location ?? 'home');
             } catch (error) {
                 console.error(error);
                 document.getElementById('logHistoryList').innerHTML = '<p class="text-center py-4 text-rose-500 font-bold">サーバーからデータを取得できませんでした</p>';
@@ -344,7 +330,7 @@
                 alert('AWSサーバーに記録を保存しました！');
                 resetForm();
                 // 保存が成功したら最新のデータをサーバーから再取得して画面を更新
-                await fetchLogsFromServer();
+                await fetchDataFromServer();
             } catch (error) {
                 alert('エラー: ' + error.message);
             } finally {
@@ -400,7 +386,7 @@
                     method: 'DELETE'
                 });
                 if (!response.ok) throw new Error('削除に失敗しました');
-                await fetchLogsFromServer();
+                await fetchDataFromServer();
             } catch (error) {
                 alert('エラー: ' + error.message);
             }
