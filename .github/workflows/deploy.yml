@@ -28,11 +28,9 @@ jobs:
       - name: Sync frontend to S3
         run: |
           aws --version
-          aws s3 sync frontend/ "s3://${{ secrets.AWS_S3_BUCKET }}" \
+          aws s3 sync frontend/ "s3://${{ secrets.AWS_S3_BUCKET }}/gutpacer/" \
             --delete \
             --exclude "config.js"
-          echo "--- S3 contents after sync ---"
-          aws s3 ls "s3://${{ secrets.AWS_S3_BUCKET }}/" --recursive
 
       - name: Invalidate CloudFront cache
         run: |
