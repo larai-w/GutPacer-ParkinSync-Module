@@ -5,6 +5,9 @@ on:
     branches:
       - main
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 permissions:
   id-token: write
   contents: read
@@ -16,13 +19,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install AWS CLI v2
-        run: |
-          curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o awscliv2.zip
-          unzip -q awscliv2.zip
-          sudo ./aws/install --update
-          aws --version
-
       - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -31,10 +27,12 @@ jobs:
 
       - name: Sync frontend to S3
         run: |
+          aws --version
           aws s3 sync frontend/ s3://${{ secrets.AWS_S3_BUCKET }} --delete --exclude "gutpacer/config.js"
 
       - name: Invalidate CloudFront cache
         run: |
+          aws --version
           aws cloudfront create-invalidation \
             --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
             --paths "/*"
