@@ -30,7 +30,7 @@ jobs:
           aws --version
           aws s3 sync frontend/ "s3://${{ secrets.AWS_S3_BUCKET }}" \
             --delete \
-            --exclude "gutpacer/config.js"
+            --exclude "config.js"
 
       - name: Invalidate CloudFront cache
         run: |
