@@ -1,12 +1,12 @@
 const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
-const { DynamoDBDocumentClient, PutCommand, ScanCommand, DeleteCommand } = require("@aws-sdk/lib-dynamodb");
+const { DynamoDBDocumentClient, PutCommand, ScanCommand, DeleteCommand, GetCommand } = require("@aws-sdk/lib-dynamodb");
 
 const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
-const TABLE_NAME = "gutpacer-logs"; // あとでAWSに作るテーブル名
+const TABLE_NAME = "gutpacer-logs";
+const SETTINGS_TABLE = "gutpacer-settings";
 
 exports.handler = async (event) => {
-    // ヘルパーさんのスマホやJunさんのPCから通信できるようにするお守り（CORSヘッダー）
     const headers = {
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*",
@@ -14,7 +14,6 @@ exports.handler = async (event) => {
         "Access-Control-Allow-Headers": "Content-Type"
     };
 
-    // ブラウザからの事前確認（OPTIONS）はスルーする
     const method = event.requestContext?.http?.method || event.httpMethod;
     if (method === "OPTIONS") {
         return { statusCode: 200, headers, body: "" };
@@ -24,29 +23,40 @@ exports.handler = async (event) => {
         // 【1. 記録の保存処理 (POST)】
         if (method === "POST") {
             const body = JSON.parse(event.body);
+
+            if (body.action === "saveSettings") {
+                await docClient.send(new PutCommand({
+                    TableName: SETTINGS_TABLE,
+                    Item: { settingKey: "location", value: body.location, updatedAt: new Date().toISOString() }
+                }));
+                return { statusCode: 200, headers, body: JSON.stringify({ message: "設定を保存しました" }) };
+            }
+
             if (!body.fullDate) {
                 return { statusCode: 400, headers, body: JSON.stringify({ error: "日付がありません" }) };
             }
-
-            // DynamoDBにデータをガツンと入れる
-            await docClient.send(new PutCommand({
-                TableName: TABLE_NAME,
-                Item: body
-            }));
-
-            return { statusCode: 200, headers, body: JSON.stringify({ message: "サーバーへの保存に成功しました！" }) };
+            await docClient.send(new PutCommand({ TableName: TABLE_NAME, Item: body }));
+            return { statusCode: 200, headers, body: JSON.stringify({ message: "保存成功" }) };
         }
 
-        // 【2. 履歴の取得処理 (GET)】
+        // 【2. ログと設定の一括取得 (GET)】
         if (method === "GET") {
-            const result = await docClient.send(new ScanCommand({
-                TableName: TABLE_NAME
-            }));
+            const result = await docClient.send(new ScanCommand({ TableName: TABLE_NAME }));
+            const logs = (result.Items || []).sort((a, b) => new Date(b.fullDate) - new Date(a.fullDate));
 
-            // 日付が新しい順（最新が一番上）に並び替えてフロントに返す
-            const sortedItems = (result.Items || []).sort((a, b) => new Date(b.fullDate) - new Date(a.fullDate));
+            // 設定テーブルのエラーはログのみ。失敗してもデフォルト値で続行
+            let location = "home";
+            try {
+                const settingResult = await docClient.send(new GetCommand({
+                    TableName: SETTINGS_TABLE,
+                    Key: { settingKey: "location" }
+                }));
+                location = settingResult.Item?.value ?? "home";
+            } catch (e) {
+                console.error("設定テーブルの取得に失敗（デフォルト値を使用）:", e.message);
+            }
 
-            return { statusCode: 200, headers, body: JSON.stringify(sortedItems) };
+            return { statusCode: 200, headers, body: JSON.stringify({ logs, location }) };
         }
 
         // 【3. 記録の削除処理 (DELETE)】
@@ -55,14 +65,11 @@ exports.handler = async (event) => {
             if (!fullDate) {
                 return { statusCode: 400, headers, body: JSON.stringify({ error: "fullDate が必要です" }) };
             }
-            await docClient.send(new DeleteCommand({
-                TableName: TABLE_NAME,
-                Key: { fullDate }
-            }));
+            await docClient.send(new DeleteCommand({ TableName: TABLE_NAME, Key: { fullDate } }));
             return { statusCode: 200, headers, body: JSON.stringify({ message: "削除しました" }) };
         }
 
-        return { statusCode: 405, headers, body: JSON.stringify({ error: "許可されていない動きです" }) };
+        return { statusCode: 405, headers, body: JSON.stringify({ error: "メソッドエラー" }) };
 
     } catch (error) {
         console.error(error);
