@@ -18,16 +18,19 @@ function getJSTDate(offsetDays = 0) {
     return jst.toISOString().split("T")[0];
 }
 
-async function getLog(dateStr) {
+// 排便判定: bowel に量・硬さが入っている日 = 排便あり
+// gutpacer-logs の bowel フィールド: { amount: "小 (S)"|"中 (M)"|"大 (L)", type: "硬い（コロコロ）"|... }
+// 排便なしの日は bowel: null で保存される
+async function hadStool(dateStr) {
     try {
         const result = await docClient.send(new GetCommand({
             TableName: TABLE_NAME,
             Key: { fullDate: dateStr }
         }));
-        return result.Item ?? null;
+        return result.Item?.bowel != null;
     } catch (e) {
-        console.error("DynamoDB getLog failed for", dateStr, e.message);
-        return null;
+        console.error("DynamoDB GetItem failed for", dateStr, e.message);
+        return false;
     }
 }
 
@@ -173,22 +176,22 @@ export const handler = async () => {
     const yesterday = getJSTDate(-1);
     const dayBefore = getJSTDate(-2);
 
-    const yesterdayLog = await getLog(yesterday);
+    const yesterdayHadStool = await hadStool(yesterday);
 
-    if (yesterdayLog !== null) {
-        console.log("Record found for yesterday - no notification needed");
+    if (yesterdayHadStool) {
+        console.log("Stool recorded for yesterday - no notification needed");
         return { statusCode: 200, body: "No notification needed" };
     }
 
-    const dayBeforeLog = await getLog(dayBefore);
+    const dayBeforeHadStool = await hadStool(dayBefore);
 
-    if (dayBeforeLog === null) {
-        // 昨日も一昨日も記録なし → 連続日数を算出して警告
+    if (!dayBeforeHadStool) {
+        // 昨日も一昨日も排便なし → 連続日数を算出して警告
         let missingDays = 2;
         while (missingDays < 7) {
             const older = getJSTDate(-(missingDays + 1));
-            const olderLog = await getLog(older);
-            if (olderLog === null) {
+            const olderHadStool = await hadStool(older);
+            if (!olderHadStool) {
                 missingDays++;
             } else {
                 break;
