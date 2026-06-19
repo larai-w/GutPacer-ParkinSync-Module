@@ -21,6 +21,11 @@ export const handler = async (event) => {
             return { statusCode: 200, headers, body: "" };
         }
 
+        const pin = event.headers?.['x-pin'];
+        if (!pin || pin !== process.env.ACCESS_PIN) {
+            return { statusCode: 401, headers, body: JSON.stringify({ error: "Unauthorized" }) };
+        }
+
         if (method === "POST") {
             const body = JSON.parse(event.body);
             if (body.action === "saveSettings") {

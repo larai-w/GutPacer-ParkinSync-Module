@@ -166,11 +166,67 @@
 
     <div id="pdfReportContent" style="position: absolute; left: -9999px; top: 0; width: 780px; background: #ffffff; padding: 32px; font-family: 'Hiragino Sans', 'Yu Gothic', sans-serif; color: #1e293b;"></div>
 
+    <div id="pinOverlay" class="fixed inset-0 bg-slate-900/80 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-2xl p-8 shadow-xl max-w-sm w-full mx-4 space-y-4">
+            <div class="text-center space-y-2">
+                <div class="w-14 h-14 bg-gradient-to-br from-blue-600 to-indigo-800 rounded-2xl shadow-md flex items-center justify-center text-white text-2xl mx-auto">
+                    <i class="fa-solid fa-lock"></i>
+                </div>
+                <h2 class="text-lg font-bold text-indigo-950">GutPacer</h2>
+                <p class="text-sm text-slate-500">PINを入力してください</p>
+            </div>
+            <input type="password" id="pinInput" inputmode="numeric" maxlength="8"
+                class="w-full bg-slate-50 border-2 border-slate-200 rounded-xl py-3 px-4 text-center text-2xl font-bold tracking-widest text-slate-700 focus:border-indigo-500 focus:outline-none"
+                placeholder="••••"
+                onkeydown="if(event.key==='Enter') submitPin()">
+            <button onclick="submitPin()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl shadow-md active:scale-[0.99] transition-all">
+                入力する
+            </button>
+            <p id="pinError" class="text-center text-xs text-rose-500 hidden">PINが正しくありません</p>
+        </div>
+    </div>
+
     <script src="https://veai.jp/gutpacer/config.js"></script>
     <script>
         let selectedAmountValue = '';
         let selectedConditionValue = 0;
         let currentLogs = [];
+
+        function getPin() {
+            return localStorage.getItem('gutpacer_pin') || '';
+        }
+
+        function showPinScreen() {
+            document.getElementById('pinOverlay').classList.remove('hidden');
+            document.getElementById('pinInput').value = '';
+            document.getElementById('pinError').classList.add('hidden');
+            setTimeout(() => document.getElementById('pinInput').focus(), 100);
+        }
+
+        async function submitPin() {
+            const pin = document.getElementById('pinInput').value.trim();
+            if (!pin) return;
+            try {
+                const res = await fetch(API_URL, { headers: { 'X-Pin': pin } });
+                if (res.status === 401) {
+                    document.getElementById('pinError').classList.remove('hidden');
+                    return;
+                }
+                localStorage.setItem('gutpacer_pin', pin);
+                document.getElementById('pinOverlay').classList.add('hidden');
+                const data = await res.json();
+                displayLogs(data.logs);
+                applyLocationSetting(data.location ?? 'home');
+                localStorage.setItem('gutpacer_location', data.location ?? 'home');
+            } catch (e) {
+                document.getElementById('pinError').classList.remove('hidden');
+            }
+        }
+
+        function handleUnauthorized() {
+            localStorage.removeItem('gutpacer_pin');
+            showPinScreen();
+        }
 
         window.onload = function() {
             const today = new Date();
@@ -179,7 +235,11 @@
             const dd = String(today.getDate()).padStart(2, '0');
             document.getElementById('logDate').value = `${yyyy}-${mm}-${dd}`;
 
-            fetchDataFromServer();
+            if (!getPin()) {
+                showPinScreen();
+            } else {
+                fetchDataFromServer();
+            }
         };
 
         // トグルの見た目と表示ラベルを切り替える
@@ -203,7 +263,7 @@
             try {
                 await fetch(API_URL, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', 'X-Pin': getPin() },
                     body: JSON.stringify({ action: 'saveSettings', location: next })
                 });
             } catch (e) {
@@ -271,7 +331,8 @@
         // ログと場所設定を一括取得する
         async function fetchDataFromServer() {
             try {
-                const response = await fetch(API_URL);
+                const response = await fetch(API_URL, { headers: { 'X-Pin': getPin() } });
+                if (response.status === 401) { handleUnauthorized(); return; }
                 if (!response.ok) throw new Error('サーバーエラー');
                 const data = await response.json();
                 displayLogs(data.logs);
@@ -321,10 +382,11 @@
                 // Lambdaに関数URL経由でPOST送信！
                 const response = await fetch(API_URL, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', 'X-Pin': getPin() },
                     body: JSON.stringify(logEntry)
                 });
 
+                if (response.status === 401) { handleUnauthorized(); return; }
                 if (!response.ok) throw new Error('保存に失敗しました');
 
                 alert('AWSサーバーに記録を保存しました！');
@@ -383,8 +445,10 @@
             if (!confirm(`${fullDate} の記録を削除しますか？`)) return;
             try {
                 const response = await fetch(`${API_URL}?fullDate=${encodeURIComponent(fullDate)}`, {
-                    method: 'DELETE'
+                    method: 'DELETE',
+                    headers: { 'X-Pin': getPin() }
                 });
+                if (response.status === 401) { handleUnauthorized(); return; }
                 if (!response.ok) throw new Error('削除に失敗しました');
                 await fetchDataFromServer();
             } catch (error) {
