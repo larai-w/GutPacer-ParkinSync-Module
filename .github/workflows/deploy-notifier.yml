@@ -1,0 +1,39 @@
+name: Deploy Notifier Lambda
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/notifier/**'
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Package Lambda code
+        run: |
+          zip function.zip backend/notifier/index.mjs
+
+      - name: Deploy to Lambda
+        run: |
+          aws lambda update-function-code \
+            --function-name gutpacer-notifier \
+            --zip-file fileb://function.zip \
+            --region ${{ secrets.AWS_REGION }}
