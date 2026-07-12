@@ -192,6 +192,16 @@
         let selectedConditionValue = 0;
         let currentLogs = [];
 
+        // サーバー由来のテキストをHTMLへ差し込む前に必ず通すこと（notes等の自由入力対策）
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#39;');
+        }
+
         function getPin() {
             return localStorage.getItem('gutpacer_pin') || '';
         }
@@ -477,13 +487,13 @@
 
                 html += `<div class="p-4 bg-slate-50 rounded-xl border border-slate-100 space-y-2.5 shadow-sm">
                     <div class="flex justify-between items-center text-xs font-bold text-slate-500 border-b border-slate-200/60 pb-1.5">
-                        <span class="text-sm text-indigo-950"><i class="fa-regular fa-calendar"></i> ${log.date}</span>
+                        <span class="text-sm text-indigo-950"><i class="fa-regular fa-calendar"></i> ${escapeHtml(log.date)}</span>
                         <span class="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-sm">調子: ${stars}</span>
                     </div>
                     <div class="flex flex-wrap gap-1.5 text-xs">`;
                 
                 if (log.hasStool) {
-                    html += `<span class="bg-amber-100 text-amber-800 font-bold px-2.5 py-1 rounded-sm">💩 便: あり [${log.bowel.amount}・${log.bowel.type}]</span>`;
+                    html += `<span class="bg-amber-100 text-amber-800 font-bold px-2.5 py-1 rounded-sm">💩 便: あり [${escapeHtml(log.bowel.amount)}・${escapeHtml(log.bowel.type)}]</span>`;
                 } else {
                     html += `<span class="bg-slate-200 text-slate-500 px-2.5 py-1 rounded-sm">💩 便: なし</span>`;
                 }
@@ -509,15 +519,15 @@
                 html += `</div>`;
 
                 if (log.notes) {
-                    html += `<div class="text-xs bg-white p-2 rounded-lg border border-slate-200/60 text-slate-600 whitespace-pre-wrap mt-1"><i class="fa-solid fa-pen text-slate-400 mr-1"></i>${log.notes}</div>`;
+                    html += `<div class="text-xs bg-white p-2 rounded-lg border border-slate-200/60 text-slate-600 whitespace-pre-wrap mt-1"><i class="fa-solid fa-pen text-slate-400 mr-1"></i>${escapeHtml(log.notes)}</div>`;
                 }
 
                 html += `
                     <div class="flex gap-2 pt-2 border-t border-slate-100">
-                        <button onclick="loadLogByDate('${log.fullDate}')" class="flex-1 text-xs font-bold py-1.5 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 active:scale-95 transition-all">
+                        <button onclick="loadLogByDate('${escapeHtml(log.fullDate)}')" class="flex-1 text-xs font-bold py-1.5 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 active:scale-95 transition-all">
                             <i class="fa-solid fa-pen-to-square mr-1"></i>編集
                         </button>
-                        <button onclick="deleteLog('${log.fullDate}')" class="flex-1 text-xs font-bold py-1.5 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 active:scale-95 transition-all">
+                        <button onclick="deleteLog('${escapeHtml(log.fullDate)}')" class="flex-1 text-xs font-bold py-1.5 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 active:scale-95 transition-all">
                             <i class="fa-solid fa-trash mr-1"></i>削除
                         </button>
                     </div>
@@ -565,7 +575,7 @@
                     ? '★'.repeat(log.condition) + '☆'.repeat(5 - log.condition)
                     : 'ー';
                 const bowelText = log.hasStool
-                    ? `あり（${log.bowel.amount}・${log.bowel.type}）`
+                    ? `あり（${escapeHtml(log.bowel.amount)}・${escapeHtml(log.bowel.type)}）`
                     : 'なし';
                 const careList = [];
                 if (log.enema) careList.push('浣腸');
@@ -577,12 +587,12 @@
 
                 rows += `
                     <tr style="border-bottom: 1px solid #e2e8f0;">
-                        <td style="padding: 8px; font-weight: bold; white-space: nowrap;">${log.date}</td>
+                        <td style="padding: 8px; font-weight: bold; white-space: nowrap;">${escapeHtml(log.date)}</td>
                         <td style="padding: 8px;">${stars}</td>
                         <td style="padding: 8px;">${bowelText}</td>
                         <td style="padding: 8px;">${careList.join('・') || 'ー'}</td>
                         <td style="padding: 8px;">${medList.join('・') || '未服用'}</td>
-                        <td style="padding: 8px; white-space: pre-wrap;">${log.notes || ''}</td>
+                        <td style="padding: 8px; white-space: pre-wrap;">${escapeHtml(log.notes || '')}</td>
                     </tr>`;
             });
 
