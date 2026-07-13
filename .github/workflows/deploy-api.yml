@@ -1,11 +1,12 @@
-name: Deploy Notifier Lambda
+name: Deploy API Lambda
 
 on:
   push:
     branches:
       - main
     paths:
-      - 'backend/notifier/**'
+      - 'backend/index.mjs'
+      - '.github/workflows/deploy-api.yml'
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -21,6 +22,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run smoke tests
+        run: npm test
+
       - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -28,15 +40,15 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
 
       # Handler is index.handler, so index.mjs must sit at the zip root.
-      # -j strips the backend/notifier/ path (previously the file was zipped
-      # with its full path, which would not resolve at runtime).
+      # -j strips the backend/ path. AWS SDK v3 is bundled in the nodejs runtime,
+      # so no node_modules are packaged.
       - name: Package Lambda code
         run: |
-          zip -j function.zip backend/notifier/index.mjs
+          zip -j function.zip backend/index.mjs
 
       - name: Deploy to Lambda
         run: |
           aws lambda update-function-code \
-            --function-name gutpacer-notifier \
+            --function-name gutpacer-backend \
             --zip-file fileb://function.zip \
             --region ${{ secrets.AWS_REGION }}

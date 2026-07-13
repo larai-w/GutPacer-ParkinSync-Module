@@ -7,8 +7,8 @@
 | コンポーネント | 実体 | デプロイ方法 |
 |---|---|---|
 | フロントエンド | `frontend/index.html` → `s3://veai-careready-frontend/gutpacer/` | GitHub Actions (`deploy.yml`)、`main` への push で自動 |
-| API Lambda | `backend/index.mjs` | **手動**(下記参照) |
-| 通知 Lambda | `backend/notifier/index.mjs` | GitHub Actions (`deploy-notifier.yml`)、`main` への push で自動 |
+| API Lambda | `backend/index.mjs` → `gutpacer-backend` | GitHub Actions (`deploy-api.yml`)、`main` への push で自動 |
+| 通知 Lambda | `backend/notifier/index.mjs` → `gutpacer-notifier` | GitHub Actions (`deploy-notifier.yml`)、`main` への push で自動 |
 | データ | DynamoDB `gutpacer-logs` / `gutpacer-settings`(us-east-1) | — |
 | 通知スケジュール | EventBridge `cron(0 23 * * ? *)` = JST 08:00 | `scripts/deploy-notifier.sh` 参照 |
 
@@ -17,27 +17,30 @@
 
 ## デプロイ
 
-### フロントエンド / 通知 Lambda
+`development` → `main` へマージすると GitHub Actions が対象ごとに自動デプロイする。
 
-`development` → `main` へマージすると GitHub Actions が自動デプロイする。
-通知 Lambda は `backend/notifier/**` に変更があるときのみ走る。
+| workflow | トリガー(main への push で) | 内容 |
+|---|---|---|
+| `deploy.yml` | 常時 | `frontend/` を S3 sync + CloudFront invalidation |
+| `deploy-api.yml` | `backend/index.mjs` 変更時 | `npm test` → `gutpacer-backend` を更新 |
+| `deploy-notifier.yml` | `backend/notifier/**` 変更時 | `gutpacer-notifier` を更新 |
 
-### API Lambda(手動)
+- API/通知の Lambda は zip ルートに `index.mjs` を置く必要がある(handler = `index.handler`)。ワークフローは `zip -j` でパスを除去している。AWS SDK v3 はランタイム同梱のため node_modules は同梱しない。
+- OIDC ロール `Github-actions-gutpacer-deploy` が `gutpacer-backend` / `gutpacer-notifier` の `lambda:UpdateFunctionCode` と S3/CloudFront 権限を持つ(2026-07-13 に backend を追加)。
+- 必要な GitHub secrets: `AWS_DEPLOY_ROLE_ARN`, `AWS_REGION`, `CLOUDFRONT_DISTRIBUTION_ID`。
+- API Lambda の環境変数 `ACCESS_PIN`(PIN認証用)は Lambda 側で管理。コードには入れない。
 
-デプロイ用 workflow は存在しない。AWS コンソールまたは CLI で `backend/index.mjs` の内容を Lambda に反映する。
+デプロイ後の確認: ブラウザで https://veai.jp/gutpacer/ を開き、PIN入力 → 履歴が表示されること。
+
+### 手動デプロイ(緊急時のフォールバック)
 
 ```bash
-cd backend
-zip -j /tmp/gutpacer-api.zip index.mjs
+zip -j /tmp/gutpacer-api.zip backend/index.mjs
 aws lambda update-function-code \
-  --function-name <API Lambda 関数名> \  # コンソールで要確認
+  --function-name gutpacer-backend \
   --zip-file fileb:///tmp/gutpacer-api.zip \
   --region us-east-1
 ```
-
-必要な環境変数: `ACCESS_PIN`(PIN認証用)。
-
-デプロイ後の確認: ブラウザで https://veai.jp/gutpacer/ を開き、PIN入力 → 履歴が表示されること。
 
 ## テスト
 
