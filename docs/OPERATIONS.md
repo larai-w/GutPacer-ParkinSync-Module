@@ -27,7 +27,8 @@
 
 - API/通知の Lambda は zip ルートに `index.mjs` を置く必要がある(handler = `index.handler`)。ワークフローは `zip -j` でパスを除去している。AWS SDK v3 はランタイム同梱のため node_modules は同梱しない。
 - OIDC ロール `Github-actions-gutpacer-deploy` が `gutpacer-backend` / `gutpacer-notifier` の `lambda:UpdateFunctionCode` と S3/CloudFront 権限を持つ(2026-07-13 に backend を追加)。
-- 必要な GitHub secrets: `AWS_DEPLOY_ROLE_ARN`, `AWS_REGION`, `CLOUDFRONT_DISTRIBUTION_ID`。
+- 必要な GitHub secrets: `AWS_DEPLOY_ROLE_ARN`, `AWS_REGION`(OIDC認証用。Lambda関数の us-east-1 とは別リージョン), `CLOUDFRONT_DISTRIBUTION_ID`。
+- Lambda 関数は全て **us-east-1** 固定。ワークフローの `update-function-code` は `--region us-east-1` を明示指定している(`AWS_REGION` シークレットが別リージョンのため、これがないと us-east-1 のARNに対して AccessDenied になる)。
 - API Lambda の環境変数 `ACCESS_PIN`(PIN認証用)は Lambda 側で管理。コードには入れない。
 
 デプロイ後の確認: ブラウザで https://veai.jp/gutpacer/ を開き、PIN入力 → 履歴が表示されること。
