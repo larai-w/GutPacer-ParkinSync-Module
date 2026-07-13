@@ -46,9 +46,12 @@ jobs:
         run: |
           zip -j function.zip backend/index.mjs
 
+      # Lambda functions live in us-east-1. The AWS_REGION secret is a
+      # different region, so target the function region explicitly here
+      # (a region mismatch causes AccessDenied against the us-east-1 ARN).
       - name: Deploy to Lambda
         run: |
           aws lambda update-function-code \
             --function-name gutpacer-backend \
             --zip-file fileb://function.zip \
-            --region ${{ secrets.AWS_REGION }}
+            --region us-east-1
