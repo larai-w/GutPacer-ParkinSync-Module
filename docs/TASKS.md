@@ -47,6 +47,7 @@
 - `.github/workflows/deploy-api.yml` 新規作成: `main` への push で `backend/index.mjs` 変更時に `npm test` → `gutpacer-backend` を自動デプロイ。
 - OIDC ロール `Github-actions-gutpacer-deploy` に `gutpacer-backend` の `lambda:UpdateFunctionCode` を追加。
 - 併せて `deploy-notifier.yml` のパッケージングバグを修正(`zip` → `zip -j`。handler=`index.handler` に対しパス付きzipは不整合だった)。
+- **判明した既存不具合を修正**: `AWS_REGION` シークレットが us-east-1 以外だったため、Lambda更新が別リージョンのARNを叩き AccessDenied。通知の自動デプロイは追加以来ずっと失敗していた。両ワークフローで `--region us-east-1` を明示して解消。初回デプロイ成功を確認済み(gutpacer-backend, 2026-07-13 04:00 UTC 更新)。
 - 検証環境(別 Lambda/テーブル)の分離は未実施。ユーザー数が増えるまでは本番直デプロイ + スモークテストで運用し、G-2 のテーブル移行時に再検討する。
 
 未着手: G-1(LIFF認証), G-2(マルチテナント化), G-4〜G-10。次の着手候補は G-1(H-3/H-4 のLINE設定が前提)。

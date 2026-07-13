@@ -1,11 +1,13 @@
 name: Deploy Notifier Lambda
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
     paths:
       - 'backend/notifier/**'
+      - '.github/workflows/deploy-notifier.yml'
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
