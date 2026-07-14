@@ -1,6 +1,6 @@
 # Agent Instructions
 
-When opening this repository, read `docs/PROJECT_HANDOFF.md` first.
+When opening this repository, read `docs/PROJECT_HANDOFF.md` first, then `docs/WORKLOG.md` for the latest session handoff (most recent work, current state, concrete values like Lambda names).
 
 Key points:
 
