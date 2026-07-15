@@ -1,88 +1,164 @@
-# GutPacer // Intestinal Pace Tuner & Bowel Tracker
-### // 腸のペースを整える排便トラッカー // Module of ParkinSync
+# GutPacer
 
-<p align="center">
-  <img width="200" height="200" alt="GutPacer Logo" src="https://github.com/user-attachments/assets/69034e7e-76bf-441f-82c8-bffcbe87050f" />
-</p>
+**A serverless bowel movement and Movicol tracking app for Parkinson's Disease caregivers — a module of ParkinSync.**
 
----
+Caregivers log daily bowel events and medication intake through a mobile-friendly single-page app backed by AWS Lambda and DynamoDB. Data collected here feeds the broader ParkinSync analytics pipeline.
 
-## 🌟 Project Overview
-
-**GutPacer** is a secure, serverless Web application module designed for caregivers and patients with Parkinson's Disease (PD). It enables efficient tracking of bowel movements and Movicol medication intake to collect critical data for analysis of medication effectiveness and symptom patterns.
-
-### 🚫 The Personal Problem & Stakeholder (PM Focus)
-The project was born out of a personal need. My father, who has Parkinson's Disease, suffers from severe constipation—a very common non-motor symptom of PD. His caregiver (helper) prepares his luggage for facility stays, but tracking his intestinal health has been error-prone. This module provides a single point of truth for caregivers (stakeholders) to manage and monitor his gut health.
-
-### 🧠 Medical & Data Science Importance (MSCS Focus)
-In Parkinson's Disease, **Constipation** is not just a daily discomfort. It significantly aggravates the absorption of L-dopa medication (such as EC-Dopal), leading to delayed gastric emptying. This results in debilitating "Delayed-on" or "Wearing-off" phenomena where medication effect is delayed or shortened. 
-
-Finding the unique **"Pace" (Pattern)** of bowel movements in relation to medication is crucial for optimizing treatment and improving quality of life (QoL). This module defines and collects the essential data primitives (features) for future machine learning and pattern discovery.
+**Status:** In development
 
 ---
 
-## 📋 Functional Primitives (Key Features)
+## Why this exists
 
-This module defines and tracks the following essential health primitives (data items) through a user-friendly interface. All data entries are designed for **Agile, high-velocity input (under 30 seconds)** by caregivers in the field.
-
-### 📋 Bowel Tracker
-Track Bowel Movements (BM).
-* **Time:** Automatic timestamp primitives.
-* **Amount:** Selectable (Small, Medium, Large).
-* **Type:** Bristol Stool Chart based options (Lumpy, Sausage-like, Mushy, etc.).
-
-### 💊 Medication Tracker
-Track Movicol intake.
-* **Movicol (1日3回):** Checkboxes for morning, noon, evening intake.
-* *(Future roadmap primitives: L-dopa intake time and duration of effectiveness).*
+Constipation is widely reported as a common non-motor symptom in Parkinson's Disease, and is thought to affect how L-dopa medication is absorbed ("delayed-on" / "wearing-off" phenomena). GutPacer creates a single point of truth for caregivers to track bowel patterns and Movicol laxative intake, building the dataset needed for future correlation analysis within ParkinSync.
 
 ---
 
-## 📊 System Architecture & Tech Stack (MSCS Focus)
+## Architecture
 
-This module operates on a secure, highly available, and decoupled AWS Serverless infrastructure, designed for low-latency data entry and secure persistence.
+```
+User (caregiver, mobile browser)
+  │
+  └─ frontend/index.html  (vanilla JS + Tailwind CSS, CDN-loaded)
+         │  PIN gate (X-Pin header; PIN stored in localStorage)
+         │
+         ▼
+  AWS CloudFront  (CDN + clean URL routing via CloudFront Functions)
+         │
+         ├─ Static assets ──  S3  (veai-careready-frontend/gutpacer/)
+         │
+         └─ /api/gutpacer/*  ──  API Gateway (HTTP API)
+                                       │
+                                       ├─ Lambda: backend/index.mjs  (Node.js ESM)
+                                       │     ├─ GET  — fetch logs + location setting
+                                       │     ├─ POST — write log / save location setting
+                                       │     └─ DELETE — remove log by fullDate
+                                       │
+                                       └─ DynamoDB Tables:
+                                             gutpacer-logs      (PK: fullDate)
+                                             gutpacer-settings  (PK: settingKey)
 
-```mermaid
-graph LR
-    User[User <br/> Caregiver / Son] -->|Access /gutpacer/| CF[AWS CloudFront]
-    
-    subgraph "Frontend Hosting"
-        CF -->|Fetch Static Assets| S3[AWS S3 Bucket <br/> /gutpacer/ folder]
-    end
-    
-    subgraph "Backend API (Module of ParkinSync)"
-        CF -->|Proxy /api/gutpacer/*| API[AWS API Gateway]
-        API --> Lambda[AWS Lambda <br/> Core Logic]
-        Lambda --> DB[(AWS DynamoDB <br/> Bowel & Med Logs)]
-    end
-    
-    %% Styling
-    classDef aws fill:#FF9900,stroke:#232F3E,stroke-width:2px,color:white;
-    classDef user fill:#ffffff,stroke:#333333,stroke-width:2px,color:#333333;
-    classDef compute fill:#00A1C1,stroke:#232F3E,stroke-width:1px,color:white;
-    
-    class User user;
-    class CF,S3,API,DB aws;
-    class Lambda compute;
+Notifier Lambda: backend/notifier/index.mjs
+  ├─ EventBridge cron: 08:00 JST daily  (cron 0 23 * * ? * UTC)
+  ├─ Reads location from gutpacer-settings
+  │     └─ Skips LINE push when location = "facility"
+  ├─ 1-day reminder: yesterday no stool, day before had stool
+  ├─ 2+ day warning: counts up to 7 consecutive days without stool
+  └─ LINE Messaging API  (Flex Message push)
+
+DynamoDB PITR: enabled on both tables (as of 2026-07-08)
+
+Frontend deploy: GitHub Actions → S3 sync on push to main
+Notifier deploy: GitHub Actions → Lambda zip on push to backend/notifier/**
 ```
 
-### 🛠️ Infrastructure Components:
-*   **AWS CloudFront:** Global Content Delivery Network (CDN) ensuring immediate loading of the tracker interface for caregivers. Supports clean URL handling via CloudFront Functions.
-*   **AWS S3:** Secure object storage hosting the static single-page application (SPA) frontend assets.
-*   **AWS API Gateway:** Fully managed, secure entry point for routing backend API requests.
-*   **AWS Lambda:** Serverless computing backend executing validation and data routing logic without provisioning servers.
-*   **AWS DynamoDB:** NoSQL database optimized for high-velocity, structured health logs, laying the analytical foundation for future ML pattern discovery.
-*   **Frontend Tech:** JavaScript, Tailwind CSS. Secure and lightweight by default.
+No framework build step — the frontend is a single static HTML file. The API Lambda and notifier Lambda are deployed independently.
 
 ---
 
-## 🏁 Project Management Approach (PMP Focus)
+## Tech Stack
 
-This project adopts an Agile Development (Scrum) methodology. Milestones define distinct project phases. GitHub Issues are used for feature definition and tracking, emphasizing User Stories and Acceptance Criteria. This approach demonstrates PMP skills in defining scope, managing stakeholders (helper/son), and driving deliverables.
+| Layer | Choice |
+|---|---|
+| Frontend | Vanilla JS, Tailwind CSS (CDN), html2canvas + jsPDF (CDN) |
+| API Lambda | Node.js ESM (`backend/index.mjs`), AWS SDK v3 |
+| Notifier Lambda | Node.js ESM (`backend/notifier/index.mjs`) |
+| Database | AWS DynamoDB (2 tables, PITR enabled) |
+| CDN / Hosting | AWS CloudFront + S3 |
+| Notifications | LINE Messaging API (Flex Message) |
+| CI / Deploy | GitHub Actions |
 
-### 🚀 Future Roadmap
-1.  **Phase 2: Data Persistence:** Sync live data payloads to DynamoDB via AWS Lambda.
-2.  **Phase 3: AI / ML Pattern Discovery:** Synchronize with ParkinSync and utilize AWS SageMaker for pattern discovery (Delayed-on prediction) to provide actionable health insights.
-3.  **Phase 4: Multi-user Real-time Sync:** Secure data access controls tailored for multiple caregivers.
+---
 
-> **Summary:** This project highlights the integration of PMP framework methodologies (Scope Definition, Stakeholder Management) alongside MSCS architecture implementation (Serverless Computing, Data Primitives Definition) to solve real-world, high-impact healthcare challenges.
+## Testing
+
+```
+scripts/smoke-test.mjs  — 6 offline unit tests (npm test)
+  - OPTIONS returns 200 without PIN (CORS preflight)
+  - CORS headers include X-Pin
+  - GET without PIN → 401
+  - GET with wrong PIN → 401
+  - POST with correct PIN but missing fullDate → 400
+  - Notifier module loads and exports a handler function
+
+Tests run entirely offline: no AWS credentials or network required.
+```
+
+Run tests: `npm install && npm test`
+
+---
+
+## Local Development
+
+```bash
+npm install
+npm test       # offline smoke tests for API Lambda + notifier module load
+
+# To exercise the API Lambda locally with a sample event:
+node -e "
+  process.env.ACCESS_PIN='1234';
+  import('./backend/index.mjs').then(m =>
+    m.handler({ requestContext:{ http:{ method:'OPTIONS' }}, headers:{} })
+      .then(r => console.log(r.statusCode))
+  );
+"
+```
+
+The frontend requires a deployed `config.js` (ignored by git) that defines `API_URL`. For local testing, create `frontend/config.js`:
+
+```js
+const API_URL = "https://your-api-gateway-url";
+```
+
+---
+
+## Deployment
+
+**Frontend:** push to `main` → GitHub Actions syncs `frontend/` to `s3://veai-careready-frontend/gutpacer/` and invalidates CloudFront (`/gutpacer/` and `/gutpacer/*`). `frontend/config.js` is excluded from sync and must be managed separately.
+
+**Notifier Lambda:** push to `main` touching `backend/notifier/**` → GitHub Actions zips and deploys to Lambda.
+
+**Core API Lambda:** manual deployment via AWS CLI or CloudShell. See `docs/OPERATIONS.md`.
+
+Required Lambda environment variables:
+- `ACCESS_PIN` (API Lambda)
+- `LINE_CHANNEL_ACCESS_TOKEN`, `LINE_USER_ID` (notifier Lambda)
+
+---
+
+## Repository Layout
+
+```
+frontend/
+  index.html           # Single-page app (PIN gate, tracker UI, PDF export)
+backend/
+  index.mjs            # Core API Lambda (GET/POST/DELETE + CORS + PIN auth)
+  notifier/
+    index.mjs          # Bowel alert notifier (LINE Flex Message)
+scripts/
+  smoke-test.mjs       # Offline unit tests
+  deploy-notifier.sh   # CloudShell deploy script for notifier Lambda
+  enable-pitr.sh       # Re-enable DynamoDB PITR after table recreation
+docs/
+  STRATEGY.md          # Roadmap and user stories
+  OPERATIONS.md        # Deploy, backup, and troubleshooting runbook
+  GROWTH_PLAN.md       # 10→30 user expansion plan (G-1..G-10 tasks)
+  PROJECT_HANDOFF.md   # Session recovery guide
+```
+
+---
+
+## Security Notes
+
+- PIN authentication uses the `X-Pin` request header; the PIN is stored in `localStorage` and validated server-side via the `ACCESS_PIN` environment variable.
+- User-entered notes are escaped with `escapeHtml()` before DOM injection.
+- DynamoDB PITR is enabled on both tables. Restore procedure: `docs/OPERATIONS.md`.
+- Do not deploy `backend/legacy/index.js` — it lacks the `X-Pin` CORS header and breaks preflight.
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE)
+
+Part of the [VEAI LAB.](https://veai.jp) ecosystem — [GutPacer product page](https://veai.jp/apps/gutpacer/)
