@@ -76,13 +76,16 @@ graph LR
 
 ---
 
-## 🏁 Project Management Approach (PMP Focus)
+## 🏁 Product and Project Management
 
-This project adopts an Agile Development (Scrum) methodology. Milestones define distinct project phases. GitHub Issues are used for feature definition and tracking, emphasizing User Stories and Acceptance Criteria. This approach demonstrates PMP skills in defining scope, managing stakeholders (helper/son), and driving deliverables.
+GutPacer uses **iterative, evidence-led Agile delivery**. It does not claim that a solo project ran formal Scrum ceremonies. The public management trail connects caregiver problems to personas, user stories, acceptance criteria, implementation, verification, release decisions, and incident learning.
 
-### 🚀 Future Roadmap
-1.  **Phase 2: Data Persistence:** Sync live data payloads to DynamoDB via AWS Lambda.
-2.  **Phase 3: AI / ML Pattern Discovery:** Synchronize with ParkinSync and utilize AWS SageMaker for pattern discovery (Delayed-on prediction) to provide actionable health insights.
-3.  **Phase 4: Multi-user Real-time Sync:** Secure data access controls tailored for multiple caregivers.
+- [Delivery management and Definition of Done](docs/PROJECT_MANAGEMENT.md)
+- [Personas, user stories, and product strategy](docs/STRATEGY.md)
+- [10-to-30-family roadmap](docs/GROWTH_PLAN.md)
+- [Delivered work and verification evidence](docs/TASKS.md)
+- [Human-only decisions and dependencies](docs/USER_TODO.md)
 
-> **Summary:** This project highlights the integration of PMP framework methodologies (Scope Definition, Stakeholder Management) alongside MSCS architecture implementation (Serverless Computing, Data Primitives Definition) to solve real-world, high-impact healthcare challenges.
+New work uses structured GitHub User Story and Delivery Task forms. Issues and pull requests can be automatically added to the **GutPacer Delivery** GitHub Project, while pull requests retain acceptance evidence, risk review, and decision context.
+
+The current production version is a single-family, PIN-protected tool. LINE identity, server-enforced user isolation, and per-user notifications are being developed for a small closed beta. General availability is not claimed.
