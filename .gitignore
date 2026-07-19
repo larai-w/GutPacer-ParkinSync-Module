@@ -2,3 +2,6 @@
 node_modules/
 .env
 frontend/config.js
+
+# 内部戦略ノート(コミット禁止)
+docs-private/
