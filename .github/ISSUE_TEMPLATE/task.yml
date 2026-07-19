@@ -1,0 +1,41 @@
+name: Delivery task
+description: Track technical, operational, research, or documentation work supporting a user story.
+title: "task: "
+labels:
+  - documentation
+body:
+  - type: input
+    id: parent
+    attributes:
+      label: Parent outcome
+      description: Link the user story, objective, or decision this task supports.
+      placeholder: "#123 or docs/GROWTH_PLAN.md G-1"
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Deliverable
+      description: Describe the concrete result, not the activity alone.
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: Definition of done
+      placeholder: |
+        - [ ] Implementation or research output is complete
+        - [ ] Relevant tests or checks pass
+        - [ ] Documentation and operational notes are updated
+        - [ ] No secrets or personal health information are committed
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies and blockers
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Completion evidence
+      description: Add commands, screenshots without personal data, logs, or commit/PR links when closing.
