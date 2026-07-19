@@ -18,7 +18,7 @@ The current release is a single-family, PIN-protected tool. The next validated o
 | Care professional | Receive a clearer factual summary during a conversation | PDF output; no clinical recommendation |
 | Product operator | Protect records and investigate failures | PIN baseline, PITR, smoke tests, deployment workflows |
 
-Detailed personas and story rationale are maintained in [STRATEGY.md](STRATEGY.md). The 10-to-30-family product plan is in [GROWTH_PLAN.md](GROWTH_PLAN.md).
+Detailed personas and story rationale are maintained in 内部戦略ノート(非公開). The 10-to-30-family product plan is in 内部グロース計画(非公開).
 
 ## Delivery lifecycle
 
