@@ -157,6 +157,22 @@ docs/
 
 ---
 
+## 🏁 Product and Project Management
+
+GutPacer uses **iterative, evidence-led Agile delivery**. It does not claim that a solo project ran formal Scrum ceremonies. The public management trail connects caregiver problems to personas, user stories, acceptance criteria, implementation, verification, release decisions, and incident learning.
+
+- [Delivery management and Definition of Done](docs/PROJECT_MANAGEMENT.md)
+- [Personas, user stories, and product strategy](docs/STRATEGY.md)
+- [10-to-30-family roadmap](docs/GROWTH_PLAN.md)
+- [Delivered work and verification evidence](docs/TASKS.md)
+- [Human-only decisions and dependencies](docs/USER_TODO.md)
+
+New work uses structured GitHub User Story and Delivery Task forms. Issues and pull requests can be automatically added to the **GutPacer Delivery** GitHub Project, while pull requests retain acceptance evidence, risk review, and decision context.
+
+The current production version is a single-family, PIN-protected tool. LINE identity, server-enforced user isolation, and per-user notifications are being developed for a small closed beta. General availability is not claimed.
+
+---
+
 ## License
 
 MIT — see [LICENSE](LICENSE)

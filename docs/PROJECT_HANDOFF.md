@@ -4,7 +4,7 @@ Last updated: 2026-07-14
 
 **Latest session handoff: `docs/WORKLOG.md`** — read it for the most recent work, current state, and concrete values (Lambda names, LINE account, region gotchas).
 
-Companion docs: `docs/STRATEGY.md` (strategy/roadmap/user stories), `docs/GROWTH_PLAN.md` (10→30 user plan, dev tasks G-1..G-10), `docs/TASKS.md` (task progress), `docs/USER_TODO.md` (human owner's todo), `docs/OPERATIONS.md` (deploy/backup/troubleshooting).
+Companion docs: `docs/STRATEGY.md` (strategy/roadmap/user stories), `docs/GROWTH_PLAN.md` (10→30 user plan, dev tasks G-1..G-10), `docs/PROJECT_MANAGEMENT.md` (public Technical PM evidence and delivery model), `docs/TASKS.md` (task progress), `docs/USER_TODO.md` (human owner's todo), `docs/OPERATIONS.md` (deploy/backup/troubleshooting).
 
 This document is the first recovery point for future Codex/Claude sessions. Read it before changing code.
 

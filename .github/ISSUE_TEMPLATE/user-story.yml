@@ -1,0 +1,78 @@
+name: User story
+description: Define a user outcome with acceptance criteria and validation evidence.
+title: "story: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for user-facing outcomes. Do not include personal health information, credentials, or LINE identifiers.
+  - type: dropdown
+    id: persona
+    attributes:
+      label: Persona
+      options:
+        - Primary family caregiver
+        - Secondary family caregiver
+        - Person receiving care
+        - Care professional
+        - Product operator
+        - Developer or maintainer
+    validations:
+      required: true
+  - type: textarea
+    id: story
+    attributes:
+      label: User story
+      description: State the user, need, and reason without prescribing the implementation.
+      placeholder: As a ..., I want ..., so that ...
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem and evidence
+      description: Describe the observed workflow, research, or feedback behind this story.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Add observable, testable outcomes as a checklist.
+      placeholder: |
+        - [ ] Given ..., when ..., then ...
+        - [ ] The user can ...
+        - [ ] Another user cannot ...
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation plan
+      description: Explain how the outcome will be checked and what evidence will be retained.
+      placeholder: Automated test, caregiver walkthrough, production smoke test, or metric.
+    validations:
+      required: true
+  - type: textarea
+    id: risks
+    attributes:
+      label: Risks, privacy, and safety
+      description: Include data boundaries, failure modes, accessibility, and health-copy considerations.
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: Out of scope
+      description: Record what this story deliberately will not solve.
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - P0 - Safety or release blocker
+        - P1 - MVP outcome
+        - P2 - Valuable after MVP
+        - P3 - Explore later
+    validations:
+      required: true
