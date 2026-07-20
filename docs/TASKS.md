@@ -50,7 +50,20 @@
 - **判明した既存不具合を修正**: `AWS_REGION` シークレットが us-east-1 以外だったため、Lambda更新が別リージョンのARNを叩き AccessDenied。通知の自動デプロイは追加以来ずっと失敗していた。両ワークフローで `--region us-east-1` を明示して解消。初回デプロイ成功を確認済み(gutpacer-backend, 2026-07-13 04:00 UTC 更新)。
 - 検証環境(別 Lambda/テーブル)の分離は未実施。ユーザー数が増えるまでは本番直デプロイ + スモークテストで運用し、G-2 のテーブル移行時に再検討する。
 
-未着手: G-1(LIFF認証), G-2(マルチテナント化), G-4〜G-10。次の着手候補は G-1(H-3/H-4 のLINE設定が前提)。
+未着手: G-1(LIFF認証), G-2(マルチテナント化), G-4〜G-10。G-1/G-2は事前実装が進行中。Mini App ID類は確認済みで、次の接続確認は開発用エンドポイントURL切り替えと本人LINE userId確認。
+
+## PMポートフォリオ基盤(2026-07-19)
+
+### ✅ PM-1: Technical PMの公開証拠をリポジトリ内に整備
+
+- `docs/PROJECT_MANAGEMENT.md`: stakeholder → user story → acceptance → architecture/delivery → validation → release decision の流れ、Definition of Ready/Done、推奨Project fields/viewsを英語で文書化。
+- User Story / Delivery Task Issue FormsとPRテンプレートを追加。受け入れ証拠、データ境界、ヘルスケア表現、rollback/recoveryを完了条件へ組み込んだ。
+- `.github/workflows/project-automation.yml`: 新規Issue/PRをGitHub Projectへ自動追加するWorkflowを追加。
+- `scripts/setup-github-project.sh`: dry-run既定で、Project、fields、labels、既存Issue取り込み、repository variableを一括設定できるようにした。
+- 検証: YAML 4ファイルのparse、shell構文、setup dry-run、`npm test` 13/13、`git diff --check`。
+- GitHub CLI再認証とsetup `--execute`を完了。[GutPacer Delivery Project](https://github.com/users/larai-w/projects/8)に既存Issue 12件、fields、labels、repository variableを反映済み。
+- PM基盤のPR [#22](https://github.com/larai-w/GutPacer-ParkinSync-Module/pull/22)を`main`へmergeし、`PROJECTS_TOKEN` Secretを登録済み。
+- テストIssue [#23](https://github.com/larai-w/GutPacer-ParkinSync-Module/issues/23)でProjectへの自動追加、Workflow成功、close後のStatus=`Done`同期を確認済み。
 
 ## 運用ルール
 
