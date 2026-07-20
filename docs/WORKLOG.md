@@ -195,3 +195,31 @@ LINE Developers Consoleで、開発用Mini AppのエンドポイントURLを `ht
 - 本番 `gutpacer-backend` と本番 `/gutpacer/` はまだ PIN 版のまま。
 - CloudFront Free plan の制限で `/gutpacer-dev/*` の新規 behavior は追加できなかったため、開発URLは `/gutpacer/dev/` に置いている。
 - チャネルシークレット、アクセストークン、AWS 認証情報は記録しない。
+
+---
+
+## 2026-07-20: 未コミット実装のコミット整理 + 権限ガードレール + 公開流出防止(Claude / Opus)
+
+### やったこと
+
+- ワークツリーに未コミットで溜まっていた G-1/G-2 実装群(`backend/line-auth.mjs` / `index-mvp.mjs` / `profile-defaults.mjs`、`frontend/index.html` の LIFF 対応、`scripts/create-v2-tables.mjs` / `migrate-to-v2.mjs`、`package.json`、`scripts/smoke-test.mjs`、docs、blog)を消失リスク解消のため論理単位でコミットした。`npm test` は 13/13 のまま。
+- Claude Code の権限設定を「自律度は維持・破壊的操作だけ確認/ブロック」に整備。
+  - `.claude/settings.local.json`(個人・gitignore)から危険な広域 allow(`aws iam *` / `aws lambda *` / `git push *`)を削除。
+  - `.claude/settings.json`(共有・追跡対象)を新規追加。`ask`=git push / aws lambda・iam・dynamodb delete・s3 rm|sync|cp・cloudfront invalidation / deploy-notifier.sh / migrate:v2・setup:v2:tables。`deny`=force/mirror push・`git reset --hard`・`git clean -fd(x)`・`rm -rf /|~`・`.env`/`*.pem`/`*credentials*`/`.aws` 読み取り・`frontend/config.js` 上書き。優先順位 deny>ask>allow。
+- push 前に `security-review` を実施。LINE 認証のテナント分離は適切、シークレット混入なし、HIGH/MEDIUM の脆弱性なしを確認。
+
+### 公開リポジトリへの戦略情報流出を検知・阻止(重要)
+
+- 本リポジトリは **PUBLIC**。過去に commit 70a3da7 が内部戦略docを `docs/` から外し、`.gitignore` の `docs-private/` に隔離する運用が確立されていた。
+- 初回コミットに、同カテゴリの戦略doc `CONTENT_AND_GROWTH_PLAN.md` / `MARKETING_POSITIONING.md` / `MVP_PLAN.md` を公開 `docs/` へ含めてしまっていた。push 前に検知。
+- 該当コミット(未push)を巻き戻して作り直し、3ファイルを `docs-private/`(gitignore済)へ退避。公開履歴・push差分の双方に、ファイル名も本文の特徴的文言も残らないことを確認してから push した。
+- 公開 `docs/` に残したのは技術系のみ: `ARCHITECTURE.md`(技術構成)、`LINE_DEV_SETUP.md`(公開ID類のみ)、`blog/`(公開前提の下書き)。
+
+### 事実メモ
+
+- push 済みブランチ: `origin/development`(先頭 `ef4e942`)。本番 `main` は未変更。
+- 教訓: 公開repoへの push 前は、シークレットだけでなく**戦略コンテンツ**もスキャンする(security-review は docs を対象外にするため別途手動確認が必要)。
+
+### まだ人間待ち(変わらず)
+
+- LINE Developers Console で開発用 Mini App エンドポイントURLを `https://veai.jp/gutpacer/dev/` へ設定 → 実機で `sub` 確認 → `MIGRATION_USER_ID=<sub> npm run migrate:v2`(dry-run→`--execute`)。
