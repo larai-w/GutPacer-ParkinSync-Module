@@ -1,8 +1,8 @@
 # GutPacer
 
-**A serverless bowel movement and Movicol tracking app for Parkinson's Disease caregivers — a module of ParkinSync.**
+**A serverless bowel-movement and laxative tracking app for family caregivers — with optional daily reminders. Part of the ParkinSync care-data ecosystem.**
 
-Caregivers log daily bowel events and medication intake through a mobile-friendly single-page app backed by AWS Lambda and DynamoDB. Data collected here feeds the broader ParkinSync analytics pipeline.
+Caregivers log daily bowel events and medication intake through a mobile-friendly single-page app backed by AWS Lambda and DynamoDB. The tool itself is condition-agnostic; data collected here can feed the broader ParkinSync analytics pipeline.
 
 **Status:** In development
 
@@ -10,7 +10,7 @@ Caregivers log daily bowel events and medication intake through a mobile-friendl
 
 ## Why this exists
 
-Constipation is widely reported as a common non-motor symptom in Parkinson's Disease, and is thought to affect how L-dopa medication is absorbed ("delayed-on" / "wearing-off" phenomena). GutPacer creates a single point of truth for caregivers to track bowel patterns and Movicol laxative intake, building the dataset needed for future correlation analysis within ParkinSync.
+Bowel rhythm is easy to lose track of in daily home care, yet it matters: constipation is a common issue for many older people and for people with chronic conditions, and in Parkinson's Disease specifically it is reported to affect how L-dopa is absorbed ("delayed-on" / "wearing-off"). GutPacer — which began from that Parkinson's care context — creates a single point of truth for caregivers to track bowel patterns and laxative intake, building a dataset that can later feed correlation analysis within ParkinSync.
 
 ---
 
@@ -56,13 +56,27 @@ No framework build step — the frontend is a single static HTML file. The API L
 
 ---
 
-## 🏁 Product and Project Management
+## 🏁 Product Management
 
-GutPacer uses **iterative, evidence-led Agile delivery**. It does not claim that a solo project ran formal Scrum ceremonies. The public management trail connects caregiver problems to personas, user stories, acceptance criteria, implementation, verification, release decisions, and incident learning.
+GutPacer doubles as a working **product-management portfolio** — iterative, evidence-led Agile
+delivery on a real caregiving tool, built solo and AI-assisted. It does not claim a solo project ran
+formal Scrum ceremonies; it claims a traceable line from caregiver problem to shipped, verified
+software. What it demonstrates:
 
-- [Delivery management and Definition of Done](docs/PROJECT_MANAGEMENT.md)
-- [Delivered work and verification evidence](docs/TASKS.md)
+- **Evidence-based delivery** — a public trail connecting caregiver problems to personas, user
+  stories, acceptance criteria, implementation, verification, release decisions, and incident
+  learning. See [delivery management and Definition of Done](docs/PROJECT_MANAGEMENT.md) and
+  [delivered work and verification evidence](docs/TASKS.md).
+- **Stakeholder management** — the current production version is a single-family, PIN-protected
+  tool; LINE identity, server-enforced user isolation, and per-user notifications are staged for a
+  small closed beta. Scope is bounded honestly — general availability is not claimed.
+- **Technical product management** — a serverless architecture owned end to end (S3/CloudFront +
+  API Gateway + Lambda + DynamoDB with PITR), plus a scheduled notifier Lambda that pushes LINE
+  reminders and deliberately stays silent when care moves to a facility (see **Architecture** above).
+- **Agile in practice** — new work uses structured GitHub **User Story** and **Delivery Task**
+  forms; issues and PRs flow into the
+  **[GutPacer Delivery](https://github.com/users/larai-w/projects/8)** GitHub Project, and PRs
+  retain acceptance evidence, risk review, and decision context. See the
+  **[issues](https://github.com/larai-w/GutPacer-ParkinSync-Module/issues)**.
 
-New work uses structured GitHub User Story and Delivery Task forms. Issues and pull requests can be automatically added to the **GutPacer Delivery** GitHub Project, while pull requests retain acceptance evidence, risk review, and decision context.
-
-The current production version is a single-family, PIN-protected tool. LINE identity, server-enforced user isolation, and per-user notifications are being developed for a small closed beta. General availability is not claimed.
+Related engineering write-ups are on the [VEAI LAB blog](https://veai.jp/blog/).
