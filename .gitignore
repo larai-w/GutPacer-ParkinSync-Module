@@ -5,3 +5,6 @@ frontend/config.js
 
 # 内部戦略ノート(コミット禁止)
 docs-private/
+
+# blog drafts kept private (see veai-jp-web/docs-private/drafts)
+docs/blog/
