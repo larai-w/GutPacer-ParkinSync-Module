@@ -1,10 +1,10 @@
 # GutPacer Project Handoff
 
-Last updated: 2026-07-14
+Last updated: 2026-07-20
 
 **Latest session handoff: `docs/WORKLOG.md`** — read it for the most recent work, current state, and concrete values (Lambda names, LINE account, region gotchas).
 
-Companion docs: `docs/STRATEGY.md` (strategy/roadmap/user stories), `docs/GROWTH_PLAN.md` (10→30 user plan, dev tasks G-1..G-10), `docs/PROJECT_MANAGEMENT.md` (public Technical PM evidence and delivery model), `docs/TASKS.md` (task progress), `docs/USER_TODO.md` (human owner's todo), `docs/OPERATIONS.md` (deploy/backup/troubleshooting).
+Companion docs: `docs/STRATEGY.md` (strategy/roadmap/user stories), `docs/GROWTH_PLAN.md` (10→30 user plan, dev tasks G-1..G-10), `docs/PROJECT_MANAGEMENT.md` (public Technical PM evidence and delivery model), `docs/TASKS.md` (task progress), owner todo notes kept outside this repo, `docs/OPERATIONS.md` (deploy/backup/troubleshooting).
 
 This document is the first recovery point for future Codex/Claude sessions. Read it before changing code.
 
@@ -46,7 +46,7 @@ No tracked file changes were present before this handoff documentation was added
 - Last stool status warning.
 - PDF export using CDN-loaded `html2canvas` and `jspdf`.
 
-The page loads `https://veai.jp/gutpacer/config.js`, which is ignored by git via `frontend/config.js`. That config is expected to define `API_URL`.
+The page loads `./config.js`. In production this is served from `/gutpacer/config.js`; in development it is served from `/gutpacer/dev/config.js`. That config is expected to define `API_URL` and, when LIFF is enabled, `GUTPACER_LIFF_ID`.
 
 ### Core API Lambda
 
@@ -129,11 +129,10 @@ Resolved on 2026-07-08: `package.json` + smoke tests added; legacy `index.js` is
 
 ## Suggested Next Steps
 
-1. Decide whether `backend/index.mjs` is the only supported core API Lambda and mark/remove `backend/index.js` accordingly.
-2. Add a minimal API deploy path or document the existing manual deployment process.
-3. Add escaping for history/PDF text fields before rendering user-entered notes.
-4. Add a tiny local smoke-test script for Lambda handlers with sample events.
-5. Confirm whether development should merge to `main` for deployment, or whether workflows should also deploy from `development`.
+1. Complete the LINE Mini App development handoff by changing the Mini App development endpoint URL to `https://veai.jp/gutpacer/dev/` and opening `https://miniapp.line.me/2010720966-MDc5cyaa` on a real phone.
+2. Capture the verified LINE user `sub` from the MVP API, then run the `migrate:v2` dry-run and execute path for the existing 6 records.
+3. Decide whether the MVP Lambda should stay as a separate development endpoint or be promoted into the main deployment path after the LINE verification check.
+4. Keep the existing production PIN flow untouched until the LINE-backed path is verified end to end.
 
 ## Quick Recovery Checklist
 
@@ -159,4 +158,4 @@ Before deploying, verify:
 - Target branch (`main` vs `development`).
 - AWS region and Lambda function names.
 - Required GitHub secrets and Lambda environment variables.
-- Whether `frontend/config.js` exists in the deployed S3 path and defines `API_URL`.
+- Whether the correct `config.js` is present in the deployed S3 path and defines `API_URL` for the intended environment.

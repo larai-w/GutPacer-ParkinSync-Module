@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>利用規約 — GutPacer</title>
+    <link rel="icon" type="image/png" sizes="64x64" href="./favicon.png">
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        html { -webkit-tap-highlight-color: transparent; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen pb-12">
+
+    <header class="bg-white border-b border-slate-200 py-5 px-4 text-center shadow-sm">
+        <h1 class="text-lg font-bold text-indigo-950">GutPacer 利用規約</h1>
+        <p class="text-xs text-slate-400 mt-1">ベアイラボ</p>
+    </header>
+
+    <main class="max-w-md mx-auto px-4 mt-6 space-y-6">
+
+        <section class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-5 text-sm text-slate-700 leading-relaxed">
+
+            <div class="space-y-2">
+                <h2 class="font-bold text-slate-900">第1条(適用)</h2>
+                <p>本規約は、本サービスの利用に関し運営者(ベアイラボ)と利用者との間に適用されます。</p>
+            </div>
+
+            <div class="space-y-2">
+                <h2 class="font-bold text-slate-900">第2条(本サービスの位置づけ・免責)</h2>
+                <ul class="list-disc list-inside space-y-1 text-slate-700">
+                    <li>本サービスは、在宅介護における排便・服薬の記録と家族間の共有・リマインドを支援するツールです。</li>
+                    <li>本サービスは医療機器ではなく、診断・治療・予防を目的とするものではありません。表示される情報は参考情報であり、医療判断の根拠として用いないでください。体調に関する判断は必ず医療専門職にご相談ください。</li>
+                    <li>「便秘を改善する」「健康になる」等の効能・効果を保証するものではありません。</li>
+                </ul>
+            </div>
+
+            <div class="space-y-2">
+                <h2 class="font-bold text-slate-900">第3条(利用資格・アカウント)</h2>
+                <ul class="list-disc list-inside space-y-1 text-slate-700">
+                    <li>利用者はLINEアカウントを通じて本サービスを利用します。</li>
+                    <li>利用者は自己の認証情報を適切に管理する責任を負います。</li>
+                </ul>
+            </div>
+
+            <div class="space-y-2">
+                <h2 class="font-bold text-slate-900">第4条(料金)</h2>
+                <p>本サービスは現在無料で提供します。将来、事前告知のうえ月額料金を設定する場合があります。</p>
+            </div>
+
+            <div class="space-y-2">
+                <h2 class="font-bold text-slate-900">第5条(禁止事項)</h2>
+                <p>法令違反、第三者の権利侵害、本サービスの運営を妨げる行為、他人になりすます行為等を禁止します。</p>
+            </div>
+
+            <div class="space-y-2">
+                <h2 class="font-bold text-slate-900">第6条(データの取扱い)</h2>
+                <p>利用者のデータの取扱いはプライバシーポリシーによります。</p>
+            </div>
+
+            <div class="space-y-2">
+                <h2 class="font-bold text-slate-900">第7条(サービスの変更・中断・終了)</h2>
+                <p>運営者は、事前の告知に努めたうえで、本サービスの内容変更・中断・終了を行うことがあります。個人開発のため可用性を保証しません。</p>
+            </div>
+
+            <div class="space-y-2">
+                <h2 class="font-bold text-slate-900">第8条(免責)</h2>
+                <p>運営者は、本サービスの利用または利用不能から生じた損害について、故意または重過失がある場合を除き責任を負いません。</p>
+            </div>
+
+            <div class="space-y-2">
+                <h2 class="font-bold text-slate-900">第9条(お問い合わせ)</h2>
+                <p>ベアイラボ / <span class="contact-email" data-user="info" data-domain="veai.jp"><noscript>info＠veai.jp（＠を半角@に置き換えてください）</noscript></span></p>
+            </div>
+
+            <p class="text-xs text-slate-400">制定日: 2026-07-22</p>
+
+        </section>
+
+        <div class="text-center pb-4">
+            <a href="./index.html" class="text-sm text-indigo-600 underline">アプリに戻る</a>
+        </div>
+
+    </main>
+
+    <!-- 問い合わせ先メールは静的HTMLに平文で置かず、実行時に組み立てて収集ボット対策とする。
+         メールアプリ未設定の環境でも連絡先を渡せるよう、mailto リンクに加え「コピー」ボタンを添える。 -->
+    <script>
+        (function () {
+            document.querySelectorAll('.contact-email').forEach(function (el) {
+                var addr = el.getAttribute('data-user') + '@' + el.getAttribute('data-domain');
+
+                var a = document.createElement('a');
+                a.href = 'mailto:' + addr;
+                a.textContent = addr;
+                a.className = 'text-indigo-600 underline break-all';
+                el.appendChild(a);
+
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.textContent = 'コピー';
+                btn.className = 'ml-2 text-xs text-indigo-600 underline';
+                btn.addEventListener('click', function () {
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(addr).then(function () {
+                            btn.textContent = 'コピーしました';
+                            setTimeout(function () { btn.textContent = 'コピー'; }, 1500);
+                        });
+                    }
+                });
+                el.appendChild(btn);
+            });
+        })();
+    </script>
+
+</body>
+</html>

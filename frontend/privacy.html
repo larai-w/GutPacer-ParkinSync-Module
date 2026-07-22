@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>プライバシーポリシー — GutPacer</title>
+    <link rel="icon" type="image/png" sizes="64x64" href="./favicon.png">
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        html { -webkit-tap-highlight-color: transparent; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen pb-12">
+
+    <header class="bg-white border-b border-slate-200 py-5 px-4 text-center shadow-sm">
+        <h1 class="text-lg font-bold text-indigo-950">GutPacer プライバシーポリシー</h1>
+        <p class="text-xs text-slate-400 mt-1">ベアイラボ</p>
+    </header>
+
+    <main class="max-w-md mx-auto px-4 mt-6 space-y-6">
+
+        <section class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-5 text-sm text-slate-700 leading-relaxed">
+
+            <p>ベアイラボ(以下「運営者」)は、GutPacer(以下「本サービス」)における利用者の情報を次のとおり取り扱います。</p>
+
+            <div class="space-y-2">
+                <h2 class="font-bold text-slate-900">取得する情報</h2>
+                <ul class="list-disc list-inside space-y-1 text-slate-700">
+                    <li>LINEログインで取得する識別子(LINEユーザーID)、および表示名等の基本プロフィール。</li>
+                    <li>利用者が入力した排便・服薬(モビコール)・体調スコア・メモ・在宅/施設の別などの記録。</li>
+                    <li>通知の宛先となるLINEのユーザー識別子。</li>
+                </ul>
+            </div>
+
+            <div class="space-y-2">
+                <h2 class="font-bold text-slate-900">利用目的</h2>
+                <ul class="list-disc list-inside space-y-1 text-slate-700">
+                    <li>記録の保存・表示・PDF出力、およびLINEによるリマインド/警告通知の提供のため。</li>
+                    <li>不具合対応・品質改善のため。</li>
+                </ul>
+            </div>
+
+            <div class="space-y-2">
+                <h2 class="font-bold text-slate-900">管理者によるデータの閲覧</h2>
+                <ul class="list-disc list-inside space-y-1 text-slate-700">
+                    <li>運営者は、原則として利用者個々の記録内容を閲覧しません。</li>
+                    <li>障害調査・不具合対応の目的のときのみ閲覧することがあり、その場合は可能な限り事前に本人へ通知します。</li>
+                </ul>
+            </div>
+
+            <div class="space-y-2">
+                <h2 class="font-bold text-slate-900">第三者提供・委託</h2>
+                <ul class="list-disc list-inside space-y-1 text-slate-700">
+                    <li>本人の同意なく第三者へ提供しません。</li>
+                    <li>データは Amazon Web Services(AWS)上に保存し、LINE通知は LINE Messaging API を利用します。これらはサービス提供に必要な範囲での委託先です。</li>
+                </ul>
+            </div>
+
+            <div class="space-y-2">
+                <h2 class="font-bold text-slate-900">保存期間・削除</h2>
+                <ul class="list-disc list-inside space-y-1 text-slate-700">
+                    <li>記録は本サービスの提供に必要な期間保存します。</li>
+                    <li>退会の申請があった場合、30日以内に当該利用者の記録を削除します。</li>
+                </ul>
+            </div>
+
+            <div class="space-y-2">
+                <h2 class="font-bold text-slate-900">開示・訂正・削除の請求</h2>
+                <p>利用者は、自己の情報の確認・訂正・削除を請求できます。窓口は下記お問い合わせ先です。</p>
+            </div>
+
+            <div class="space-y-2">
+                <h2 class="font-bold text-slate-900">安全管理</h2>
+                <p>通信は暗号化し、認証を経たアクセスのみを許可します。データのバックアップを有効にしています。</p>
+            </div>
+
+            <div class="space-y-2">
+                <h2 class="font-bold text-slate-900">お問い合わせ先</h2>
+                <p>ベアイラボ / <span class="contact-email" data-user="info" data-domain="veai.jp"><noscript>info＠veai.jp（＠を半角@に置き換えてください）</noscript></span></p>
+            </div>
+
+            <p class="text-xs text-slate-400">制定日: 2026-07-22</p>
+
+        </section>
+
+        <div class="text-center pb-4">
+            <a href="./index.html" class="text-sm text-indigo-600 underline">アプリに戻る</a>
+        </div>
+
+    </main>
+
+    <!-- 問い合わせ先メールは静的HTMLに平文で置かず、実行時に組み立てて収集ボット対策とする。
+         メールアプリ未設定の環境でも連絡先を渡せるよう、mailto リンクに加え「コピー」ボタンを添える。 -->
+    <script>
+        (function () {
+            document.querySelectorAll('.contact-email').forEach(function (el) {
+                var addr = el.getAttribute('data-user') + '@' + el.getAttribute('data-domain');
+
+                var a = document.createElement('a');
+                a.href = 'mailto:' + addr;
+                a.textContent = addr;
+                a.className = 'text-indigo-600 underline break-all';
+                el.appendChild(a);
+
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.textContent = 'コピー';
+                btn.className = 'ml-2 text-xs text-indigo-600 underline';
+                btn.addEventListener('click', function () {
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(addr).then(function () {
+                            btn.textContent = 'コピーしました';
+                            setTimeout(function () { btn.textContent = 'コピー'; }, 1500);
+                        });
+                    }
+                });
+                el.appendChild(btn);
+            });
+        })();
+    </script>
+
+</body>
+</html>

@@ -4,7 +4,10 @@
   "type": "module",
   "description": "GutPacer - serverless bowel movement and Movicol tracking app for Parkinson's care",
   "scripts": {
-    "test": "node scripts/smoke-test.mjs"
+    "test": "node scripts/smoke-test.mjs",
+    "setup:v2:tables": "node scripts/create-v2-tables.mjs",
+    "migrate:v2": "node scripts/migrate-to-v2.mjs",
+    "report:retention": "node scripts/retention-report.mjs"
   },
   "devDependencies": {
     "@aws-sdk/client-dynamodb": "^3.600.0",

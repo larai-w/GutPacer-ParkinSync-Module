@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
         -webkit-tap-highlight-color: transparent;
     </style>
@@ -188,11 +189,13 @@
         </div>
     </div>
 
-    <script src="https://veai.jp/gutpacer/config.js"></script>
+    <script src="./config.js"></script>
     <script>
         let selectedAmountValue = '';
         let selectedConditionValue = 0;
         let currentLogs = [];
+        let lineIdToken = '';
+        const LIFF_ID = window.GUTPACER_LIFF_ID || '';
 
         // サーバー由来のテキストをHTMLへ差し込む前に必ず通すこと（notes等の自由入力対策）
         function escapeHtml(value) {
@@ -206,6 +209,25 @@
 
         function getPin() {
             return localStorage.getItem('gutpacer_pin') || '';
+        }
+
+        function getAuthHeaders(extra = {}) {
+            const auth = lineIdToken
+                ? { 'X-Line-Id-Token': lineIdToken }
+                : { 'X-Pin': getPin() };
+            return { ...extra, ...auth };
+        }
+
+        async function initializeLiff() {
+            if (!LIFF_ID) return false;
+            await liff.init({ liffId: LIFF_ID });
+            if (!liff.isLoggedIn()) {
+                liff.login();
+                return false;
+            }
+            lineIdToken = liff.getIDToken() || '';
+            if (!lineIdToken) throw new Error('LINE ID token was not issued');
+            return true;
         }
 
         function showPinScreen() {
@@ -240,14 +262,22 @@
             showPinScreen();
         }
 
-        window.onload = function() {
+        window.onload = async function() {
             const today = new Date();
             const yyyy = today.getFullYear();
             const mm = String(today.getMonth() + 1).padStart(2, '0');
             const dd = String(today.getDate()).padStart(2, '0');
             document.getElementById('logDate').value = `${yyyy}-${mm}-${dd}`;
 
-            if (!getPin()) {
+            if (LIFF_ID) {
+                try {
+                    const loggedIn = await initializeLiff();
+                    if (loggedIn) await fetchDataFromServer();
+                } catch (error) {
+                    console.error('LIFF initialization failed', error);
+                    document.getElementById('logHistoryList').innerHTML = '<p class="text-center py-4 text-rose-500 font-bold">LINEログインを初期化できませんでした</p>';
+                }
+            } else if (!getPin()) {
                 showPinScreen();
             } else {
                 fetchDataFromServer();
@@ -275,7 +305,7 @@
             try {
                 await fetch(API_URL, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-Pin': getPin() },
+                    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
                     body: JSON.stringify({ action: 'saveSettings', location: next })
                 });
             } catch (e) {
@@ -343,7 +373,7 @@
         // ログと場所設定を一括取得する
         async function fetchDataFromServer() {
             try {
-                const response = await fetch(API_URL, { headers: { 'X-Pin': getPin() } });
+                const response = await fetch(API_URL, { headers: getAuthHeaders() });
                 if (response.status === 401) { handleUnauthorized(); return; }
                 if (!response.ok) throw new Error('サーバーエラー');
                 const data = await response.json();
@@ -394,7 +424,7 @@
                 // Lambdaに関数URL経由でPOST送信！
                 const response = await fetch(API_URL, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-Pin': getPin() },
+                    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
                     body: JSON.stringify(logEntry)
                 });
 
@@ -458,7 +488,7 @@
             try {
                 const response = await fetch(`${API_URL}?fullDate=${encodeURIComponent(fullDate)}`, {
                     method: 'DELETE',
-                    headers: { 'X-Pin': getPin() }
+                    headers: getAuthHeaders()
                 });
                 if (response.status === 401) { handleUnauthorized(); return; }
                 if (!response.ok) throw new Error('削除に失敗しました');
@@ -668,5 +698,14 @@
             }
         }
     </script>
+
+    <footer class="max-w-md mx-auto px-4 pt-4 pb-8 text-center">
+        <p class="text-xs text-slate-400">
+            <a href="./privacy.html" class="underline hover:text-slate-600">プライバシーポリシー</a>
+            &nbsp;/&nbsp;
+            <a href="./terms.html" class="underline hover:text-slate-600">利用規約</a>
+        </p>
+    </footer>
+
 </body>
 </html>

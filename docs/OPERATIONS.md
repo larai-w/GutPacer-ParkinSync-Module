@@ -52,6 +52,17 @@ npm test      # Lambda ハンドラのスモークテスト(AWS 接続不要)
 
 API の挙動(CORS / PIN / バリデーション)を変更したら、デプロイ前に必ず実行する。
 
+### 継続率レポート (H-11)
+
+```bash
+npm run report:retention        # 直近28日(4週)・今日JST基準
+WEEKS=6 npm run report:retention
+END_DATE=2026-07-14 npm run report:retention
+```
+
+出力の `gate` フィールド: `"expand"` = 継続5組以上, `"hold"` = 5組未満。
+実行にはローカルまたは CloudShell 上で有効な AWS 認証情報が必要。出力に LINE userId (sub) が含まれるため共有時はマスクすること。
+
 ## バックアップ / リストア
 
 ### 現状
