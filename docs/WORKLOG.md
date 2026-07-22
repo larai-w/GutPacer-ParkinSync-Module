@@ -211,7 +211,7 @@ LINE Developers Consoleで、開発用Mini AppのエンドポイントURLを `ht
 ### 公開リポジトリへの戦略情報流出を検知・阻止(重要)
 
 - 本リポジトリは **PUBLIC**。過去に commit 70a3da7 が内部戦略docを `docs/` から外し、`.gitignore` の `docs-private/` に隔離する運用が確立されていた。
-- 初回コミットに、同カテゴリの戦略doc `CONTENT_AND_GROWTH_PLAN.md` / `MARKETING_POSITIONING.md` / `MVP_PLAN.md` を公開 `docs/` へ含めてしまっていた。push 前に検知。
+- 初回コミットに、同カテゴリの内部戦略doc（数点）を公開 `docs/` へ含めてしまっていた。push 前に検知。
 - 該当コミット(未push)を巻き戻して作り直し、3ファイルを `docs-private/`(gitignore済)へ退避。公開履歴・push差分の双方に、ファイル名も本文の特徴的文言も残らないことを確認してから push した。
 - 公開 `docs/` に残したのは技術系のみ: `ARCHITECTURE.md`(技術構成)、`LINE_DEV_SETUP.md`(公開ID類のみ)、`blog/`(公開前提の下書き)。
 
@@ -223,3 +223,9 @@ LINE Developers Consoleで、開発用Mini AppのエンドポイントURLを `ht
 ### まだ人間待ち(変わらず)
 
 - LINE Developers Console で開発用 Mini App エンドポイントURLを `https://veai.jp/gutpacer/dev/` へ設定 → 実機で `sub` 確認 → `MIGRATION_USER_ID=<sub> npm run migrate:v2`(dry-run→`--execute`)。
+
+---
+
+## 事業・B2B戦略の記録（非公開に移動）
+
+事業戦略・B2B市場分析・収益見込み・製品ロードマップ等の作業記録は、公開リポジトリから外し `docs-private/` に移動しました（非公開）。
