@@ -6,7 +6,7 @@ GutPacer is managed as an iterative, evidence-led health-adjacent product. This 
 
 Reduce the memory and hand-off burden around bowel and medication records for family caregivers without turning the application into a diagnostic or treatment tool.
 
-The current release is a single-family, PIN-protected tool. The next validated outcome is a closed beta for 3-5 invited families with LINE identity and server-enforced data isolation. General release is not the current milestone.
+The current release is a single-family, PIN-protected tool. The next validated outcome is a small closed beta with LINE identity and server-enforced data isolation. General release is not the current milestone.
 
 ## Stakeholders and personas
 
@@ -77,7 +77,7 @@ Recommended fields:
 | --- | --- |
 | Status | Todo, In Progress, Done |
 | Priority | P0, P1, P2, P3 |
-| Phase | Foundation, Closed beta, 10 families, 30 families, Later |
+| Phase | Foundation, Closed beta, Early access, Scale, Later |
 | Area | Product, Frontend, API, Data, LINE, Notifications, Security, Operations, Research, Content |
 | Size | XS, S, M, L |
 | Target | Unscheduled, Current, Next, Later |
