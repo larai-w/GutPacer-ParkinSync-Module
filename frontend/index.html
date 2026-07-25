@@ -147,6 +147,10 @@
                     <span id="toggleDot" class="absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow-sm transition-all duration-300"></span>
                 </button>
             </div>
+            <p class="text-xs text-slate-400 mt-2 leading-relaxed">
+                「施設」にすると、リマインド通知を止めます(施設で職員が見てくれている間の通知オフ)。<br>
+                記録はどちらの設定でもこれまで通り残せます。
+            </p>
         </section>
 
         <section class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-4">
@@ -292,7 +296,7 @@
             const isHome = location === 'home';
             btn.className = `relative w-16 h-8 rounded-full transition-colors duration-300 focus:outline-none ${isHome ? 'bg-emerald-500' : 'bg-blue-500'}`;
             dot.className = `absolute top-1 w-6 h-6 bg-white rounded-full shadow-sm transition-all duration-300 ${isHome ? 'left-1' : 'left-9'}`;
-            label.textContent = isHome ? '🏠 自宅' : '🏥 施設';
+            label.textContent = isHome ? '🏠 自宅(リマインドあり)' : '🏥 施設(リマインド通知オフ)';
             label.className = `font-bold text-sm ${isHome ? 'text-emerald-700' : 'text-blue-700'}`;
         }
 
