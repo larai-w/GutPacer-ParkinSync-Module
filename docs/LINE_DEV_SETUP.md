@@ -6,7 +6,9 @@
 
 | 用途 | 値 | 使う場所 |
 |---|---:|---|
-| Mini AppチャネルID | `2010428233` | APIのIDトークン検証時 (`LINE_LOGIN_CHANNEL_ID`) |
+| Mini App/プロバイダ側ID | `2010428233` | **IDトークン検証には使わない**(参考値) |
+| 検証用チャネルID(開発) | `2010720966` | APIのIDトークン検証 (`LINE_LOGIN_CHANNEL_ID`)。LIFF ID先頭と一致 |
+| 検証用チャネルID(審査/本番) | `2010720967` / `2010720968` | 各環境の `LINE_LOGIN_CHANNEL_ID` |
 | 開発用LIFF ID | `2010720966-MDc5cyaa` | フロントの`liff.init()` / `GUTPACER_LIFF_ID` |
 | 審査用LIFF ID | `2010720967-TssMkFAf` | 審査環境の`GUTPACER_LIFF_ID` |
 | 本番用LIFF ID | `2010720968-FR7IVKjb` | 本番環境の`GUTPACER_LIFF_ID` |
@@ -19,7 +21,7 @@ LINE Mini Appでも、Mini App URL のパス部分が `liff.init({ liffId })` �
 | 審査用 | `https://miniapp.line.me/2010720967-TssMkFAf` | `2010720967-TssMkFAf` |
 | 本番用 | `https://miniapp.line.me/2010720968-FR7IVKjb` | `2010720968-FR7IVKjb` |
 
-API側のIDトークン検証に使うチャネルIDは `2010428233`。LIFF URLの先頭数字(`2010720966`など)とは別なので混同しない。
+**訂正(2026-07-22・実機H-4で判明)**: API側のIDトークン検証に使うチャネルIDは、**環境ごとの LINEログインチャネルID = LIFF ID の先頭数字**(開発 `2010720966` / 審査 `2010720967` / 本番 `2010720968`)。トークンの `aud` はこの値になる。以前ここに書いていた `2010428233` での検証は**誤り**で、実機で 401(`aud` 不一致)→フロントがPIN画面にフォールバックする。`2010428233` は Mini App/プロバイダ側のIDで、IDトークン検証には**使わない**。
 
 ## Mini Appの接続情報を確認した後に設定する値
 
@@ -35,7 +37,7 @@ Mini AppのLIFF IDが空の場合、フロントは従来のPIN版として動�
 Lambda環境変数:
 
 ```text
-LINE_LOGIN_CHANNEL_ID=2010428233
+LINE_LOGIN_CHANNEL_ID=2010720966
 ```
 
 現時点のMini AppエンドポイントURL:
@@ -71,7 +73,7 @@ window.GUTPACER_LIFF_ID = "2010720966-MDc5cyaa";
 開発用API Lambdaには次の環境変数を設定する。
 
 ```text
-LINE_LOGIN_CHANNEL_ID=2010428233
+LINE_LOGIN_CHANNEL_ID=2010720966
 LOGS_TABLE=gutpacer-logs-v2
 USERS_TABLE=gutpacer-users
 ```

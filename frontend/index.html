@@ -13,6 +13,34 @@
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
         -webkit-tap-highlight-color: transparent;
+
+        /* ===== 事業所閲覧モード ===== */
+        /* .view-care が body に付いているとき入力系を非表示にする */
+        body.view-care .js-input-only {
+            display: none !important;
+        }
+
+        /* 家族/事業所の文言切替 */
+        body:not(.view-care) .care-only { display: none; }
+        body.view-care .family-only { display: none; }
+
+        /* 閲覧モードのバナー */
+        #careViewBanner {
+            display: none;
+        }
+        body.view-care #careViewBanner {
+            display: flex;
+        }
+
+        /* 閲覧モードでセクション絵文字を控えめに */
+        body.view-care .section-emoji {
+            display: none;
+        }
+
+        /* 閲覧モードでは履歴内の編集・削除ボタン行を非表示にする */
+        body.view-care .js-log-actions {
+            display: none !important;
+        }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans min-h-screen pb-12">
@@ -23,11 +51,19 @@
                 <i class="fa-solid fa-arrows-spin"></i>
             </div>
             <h1 class="text-xl font-bold tracking-tight mt-2 text-indigo-950">GutPacer</h1>
-            <p class="text-xs text-slate-500 font-medium">腸のペースを整える排便トラッカー // Module of ParkinSync</p>
+            <p class="text-xs text-slate-500 font-medium">
+                <span class="family-only">腸のペースを整える排便トラッカー // Module of ParkinSync</span>
+                <span class="care-only">排便・服薬 記録ビュー（事業所閲覧用）</span>
+            </p>
         </div>
     </header>
 
     <main class="max-w-md mx-auto px-4 mt-6 space-y-4">
+
+        <div id="careViewBanner" class="bg-indigo-50 border border-indigo-200 rounded-2xl px-4 py-3 text-sm text-indigo-800 flex items-center justify-between gap-3">
+            <span class="font-bold">閲覧モード（事業所スタッフ用）</span>
+            <button type="button" onclick="switchToFamilyView()" class="text-xs font-bold text-indigo-600 underline underline-offset-2 whitespace-nowrap active:opacity-70">家族表示に戻す</button>
+        </div>
 
         <section class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 text-center space-y-1.5">
             <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">現在の排便ステータス (Status)</div>
@@ -36,9 +72,9 @@
             </div>
         </section>
 
-        <section class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-4">
+        <section class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-4 js-input-only">
             <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
-                <span class="text-xl">📅</span> Daily Status (基本情報)
+                <span class="text-xl section-emoji">📅</span> Daily Status (基本情報)
             </h2>
             <hr class="border-slate-100">
 
@@ -59,9 +95,9 @@
             </div>
         </section>
 
-        <section class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-4">
+        <section class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-4 js-input-only">
             <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
-                <span class="text-xl">💩</span> Bowel Tracker (排便記録)
+                <span class="text-xl section-emoji">💩</span> Bowel Tracker (排便記録)
             </h2>
             <p class="text-xs text-slate-400">※便が出た場合は、以下の量と状態を選択してください。選択しなければ「便なし」として記録されます。</p>
             <hr class="border-slate-100">
@@ -100,9 +136,9 @@
             </div>
         </section>
 
-        <section class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-4">
+        <section class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-4 js-input-only">
             <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
-                <span class="text-xl">💊</span> Medication Tracker (モヴィコール)
+                <span class="text-xl section-emoji">💊</span> Medication Tracker (モヴィコール)
             </h2>
             <hr class="border-slate-100">
 
@@ -124,19 +160,21 @@
             </div>
         </section>
 
-        <section class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-4">
+        <section class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-4 js-input-only">
             <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
-                <span class="text-xl">📝</span> Notes (ノート)
+                <span class="text-xl section-emoji">📝</span> Notes (ノート)
             </h2>
             <hr class="border-slate-100">
             <textarea id="logNotes" rows="3" placeholder="様子の変化、お腹の張り、メモなどを自由に入力してください..." class="w-full bg-slate-50 border-2 border-slate-200 rounded-xl py-3 px-3 font-medium text-slate-700 focus:border-indigo-500 focus:outline-none transition-all resize-none"></textarea>
         </section>
 
-        <button type="button" id="saveBtn" onclick="saveGutLog()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl shadow-md active:scale-[0.99] transition-all flex items-center justify-center gap-2 text-base disabled:bg-slate-400">
-            <i class="fa-solid fa-cloud-arrow-up"></i> 記録を保存する (Save Log)
-        </button>
+        <div class="js-input-only">
+            <button type="button" id="saveBtn" onclick="saveGutLog()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl shadow-md active:scale-[0.99] transition-all flex items-center justify-center gap-2 text-base disabled:bg-slate-400">
+                <i class="fa-solid fa-cloud-arrow-up"></i> 記録を保存する (Save Log)
+            </button>
+        </div>
 
-        <section class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+        <section class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 js-input-only">
             <div class="flex items-center justify-between">
                 <div>
                     <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">場所設定 (Location)</div>
@@ -200,6 +238,38 @@
         let currentLogs = [];
         let lineIdToken = '';
         const LIFF_ID = window.GUTPACER_LIFF_ID || '';
+
+        // ===== 事業所閲覧モード切替 =====
+        const CARE_VIEW_KEY = 'GUTPACER_VIEW';
+
+        function applyViewMode(mode) {
+            if (mode === 'care') {
+                document.body.classList.add('view-care');
+            } else {
+                document.body.classList.remove('view-care');
+            }
+        }
+
+        function initViewMode() {
+            const params = new URLSearchParams(window.location.search);
+            const viewParam = params.get('view');
+            if (viewParam === 'care') {
+                localStorage.setItem(CARE_VIEW_KEY, 'care');
+                applyViewMode('care');
+            } else if (viewParam === 'family') {
+                localStorage.removeItem(CARE_VIEW_KEY);
+                applyViewMode('family');
+            } else {
+                // クエリなし: localStorageを参照
+                const stored = localStorage.getItem(CARE_VIEW_KEY);
+                applyViewMode(stored === 'care' ? 'care' : 'family');
+            }
+        }
+
+        function switchToFamilyView() {
+            localStorage.removeItem(CARE_VIEW_KEY);
+            applyViewMode('family');
+        }
 
         // サーバー由来のテキストをHTMLへ差し込む前に必ず通すこと（notes等の自由入力対策）
         function escapeHtml(value) {
@@ -267,6 +337,9 @@
         }
 
         window.onload = async function() {
+            // 事業所/家族モードを最初に確定する（CSSで出し分けるのでPIN/LIFF前に実行）
+            initViewMode();
+
             const today = new Date();
             const yyyy = today.getFullYear();
             const mm = String(today.getMonth() + 1).padStart(2, '0');
@@ -559,7 +632,7 @@
                 }
 
                 html += `
-                    <div class="flex gap-2 pt-2 border-t border-slate-100">
+                    <div class="flex gap-2 pt-2 border-t border-slate-100 js-log-actions">
                         <button onclick="loadLogByDate('${escapeHtml(log.fullDate)}')" class="flex-1 text-xs font-bold py-1.5 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 active:scale-95 transition-all">
                             <i class="fa-solid fa-pen-to-square mr-1"></i>編集
                         </button>
