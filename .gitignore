@@ -3,6 +3,9 @@ node_modules/
 .env
 frontend/config.js
 
+# エディタ個人設定(コミットしない)
+*.code-workspace
+
 # 内部戦略ノート(コミット禁止)
 docs-private/
 
