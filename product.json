@@ -1,0 +1,132 @@
+{
+	"$schema": "https://raw.githubusercontent.com/larai-w/veai-jp-web/main/schemas/product.schema.json",
+	"schemaVersion": 1,
+	"slug": "gutpacer",
+	"name": "GutPacer",
+	"portfolioRole": "bowel-condition-capture",
+	"audiences": [
+		"family-caregiver",
+		"care-recipient",
+		"care-professional",
+		"technical-reviewer"
+	],
+	"availability": {
+		"stage": "private-household-mvp",
+		"access": "private",
+		"summary": {
+			"en": "Working PIN-protected single-family MVP with optional sharing outputs; separate staff accounts and multi-household isolation are not released.",
+			"ja": "PINで保護された単一家族向けMVPです。共有用出力はありますが、職員別アカウントと複数世帯分離は未公開です。"
+		}
+	},
+	"evidenceLevel": "implemented",
+	"canonicalRepository": "https://github.com/larai-w/GutPacer-ParkinSync-Module",
+	"publicUrls": {
+		"productPage": "https://veai.jp/apps/gutpacer/",
+		"project": "https://github.com/users/larai-w/projects/8"
+	},
+	"lastVerified": "2026-07-31",
+	"site": {
+		"status": "in-development",
+		"order": 6,
+		"icon": "📊",
+		"themeColor": "#e5f3e2",
+		"techStack": [
+			"AWS Lambda",
+			"Amazon DynamoDB",
+			"LINE Messaging API",
+			"Vanilla JavaScript"
+		],
+		"en": {
+			"name": "GutPacer",
+			"tagline": "Fast bowel and medication records for a private family workflow",
+			"description": "A PIN-protected single-family record for bowel events, medication, and condition notes, with PDF export and a read-only care view. Separate staff accounts and multi-household service are not released."
+		},
+		"ja": {
+			"name": "GutPacer",
+			"kana": "ガットペーサー",
+			"tagline": "単一家族で使う、すばやい排便・服薬記録",
+			"description": "排便、服薬、体調メモを残すPIN保護の単一家族向け記録です。PDFと読み取り専用ケアビューはありますが、職員別アカウントや複数世帯サービスは未公開です。"
+		}
+	},
+	"capabilities": [
+		{
+			"id": "rapid-structured-entry",
+			"label": {
+				"en": "Rapid structured bowel, medication, and condition entry",
+				"ja": "排便・服薬・体調のすばやい構造化入力"
+			},
+			"status": "implemented",
+			"evidenceUrls": [
+				"https://github.com/larai-w/GutPacer-ParkinSync-Module/blob/main/frontend/index.html"
+			]
+		},
+		{
+			"id": "pin-protection",
+			"label": {
+				"en": "PIN-protected single-family access",
+				"ja": "PINで保護された単一家族アクセス"
+			},
+			"status": "implemented",
+			"evidenceUrls": [
+				"https://github.com/larai-w/GutPacer-ParkinSync-Module/issues/20"
+			]
+		},
+		{
+			"id": "pdf-and-care-view",
+			"label": {
+				"en": "PDF export and read-only care view",
+				"ja": "PDF出力と読み取り専用ケアビュー"
+			},
+			"status": "implemented",
+			"evidenceUrls": [
+				"https://github.com/larai-w/GutPacer-ParkinSync-Module/issues/39"
+			]
+		},
+		{
+			"id": "line-reminders",
+			"label": {
+				"en": "Scheduled LINE reminders for the configured household",
+				"ja": "設定済み世帯向けLINE定期通知"
+			},
+			"status": "implemented",
+			"evidenceUrls": [
+				"https://github.com/larai-w/GutPacer-ParkinSync-Module/tree/main/backend/notifier"
+			]
+		},
+		{
+			"id": "multi-household-identity",
+			"label": {
+				"en": "Server-enforced multi-household identity and isolation",
+				"ja": "サーバー強制の複数世帯本人確認・分離"
+			},
+			"status": "prototype",
+			"evidenceUrls": [
+				"https://github.com/larai-w/GutPacer-ParkinSync-Module/issues/3",
+				"https://github.com/larai-w/GutPacer-ParkinSync-Module/issues/5"
+			]
+		},
+		{
+			"id": "display-directions",
+			"label": {
+				"en": "Factual, soft, and optional friendly display directions",
+				"ja": "標準・ソフト・任意の親しみ表示案"
+			},
+			"status": "prototype",
+			"evidenceUrls": [
+				"https://github.com/larai-w/GutPacer-ParkinSync-Module/issues/36"
+			]
+		}
+	],
+	"boundaries": {
+		"en": [
+			"The current production context is one PIN-protected family, not a shared multi-household platform.",
+			"The read-only care view does not provide staff identity, role management, or clinical review validation.",
+			"Friendly or mascot treatment is optional and must not become the default professional-facing export."
+		],
+		"ja": [
+			"現在の本番はPINで保護された単一家族向けで、複数世帯共有基盤ではありません。",
+			"読み取り専用ケアビューには、職員本人確認、役割管理、臨床的検証は含まれません。",
+			"親しみ表示やキャラクターは任意とし、専門職向け出力の標準にはしません。"
+		]
+	}
+}
