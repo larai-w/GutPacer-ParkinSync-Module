@@ -78,5 +78,9 @@ software. What it demonstrates:
   **[GutPacer Delivery](https://github.com/users/larai-w/projects/8)** GitHub Project, and PRs
   retain acceptance evidence, risk review, and decision context. See the
   **[issues](https://github.com/larai-w/GutPacer-ParkinSync-Module/issues)**.
+- **Design decisions** — the public
+  **[display-direction evaluation](docs/DISPLAY_DIRECTION_EVALUATION.md)** compares factual,
+  soft non-mascot, and optional friendly treatments across family entry, history, care-staff,
+  and PDF contexts before any production default changes.
 
 Related engineering write-ups are on the [VEAI LAB blog](https://veai.jp/blog/).

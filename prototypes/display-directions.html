@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="ja" data-direction="soft" data-context="entry">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>GutPacer 表示方針比較プロトタイプ</title>
+  <link rel="icon" type="image/png" href="../frontend/favicon.png">
+  <style>
+    :root {
+      --ink: #17202a; --muted: #5f6b76; --line: #d9dee3; --surface: #fff;
+      --canvas: #f4f6f7; --accent: #24705a; --accent-strong: #165441;
+      --accent-soft: #e9f5ef;
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif;
+      color: var(--ink); background: var(--canvas);
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 320px; background: var(--canvas); }
+    button, input, select, textarea { font: inherit; }
+    button { cursor: pointer; }
+    button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+      outline: 3px solid #f0a33b; outline-offset: 2px;
+    }
+    .shell { width: min(1180px, 100%); margin: 0 auto; padding: 24px 20px 48px; }
+    .page-header { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+    .page-header > div { min-width: 0; }
+    .brand-mark { width: 48px; height: 48px; border-radius: 8px; }
+    h1 { margin: 0; font-size: 1.45rem; line-height: 1.25; letter-spacing: 0; }
+    .page-header p { margin: 3px 0 0; color: var(--muted); font-size: .9rem; }
+    .controls {
+      display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 16px;
+      padding: 16px 0 20px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+    }
+    .control-group { min-width: 0; }
+    .control-label { display: block; margin-bottom: 8px; color: var(--muted); font-size: .78rem; font-weight: 700; }
+    .segmented {
+      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px;
+      padding: 4px; background: #e5e9ec; border-radius: 8px;
+    }
+    .segmented.contexts { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .segment {
+      min-width: 0; min-height: 46px; padding: 8px 10px; border: 0; border-radius: 6px;
+      color: #46515b; background: transparent; font-weight: 700; line-height: 1.25;
+      overflow-wrap: anywhere;
+    }
+    .segment[aria-selected="true"] {
+      color: var(--accent-strong); background: #fff; box-shadow: 0 1px 3px rgba(18, 31, 42, .14);
+    }
+    .segment small { display: block; margin-top: 2px; font-size: .68rem; font-weight: 600; color: var(--muted); }
+    .workspace {
+      display: grid; grid-template-columns: minmax(0, 720px) minmax(250px, 1fr);
+      gap: 28px; align-items: start; padding-top: 24px;
+    }
+    .prototype-frame {
+      min-width: 0; overflow: hidden; border: 1px solid #cdd4da; border-radius: 8px; background: var(--surface);
+      box-shadow: 0 14px 36px rgba(29, 42, 53, .12);
+    }
+    .app-header {
+      display: flex; align-items: center; justify-content: space-between; min-height: 70px;
+      padding: 13px 20px; border-bottom: 1px solid var(--line); background: #fff;
+    }
+    .app-title { display: flex; align-items: center; gap: 10px; }
+    .app-title img { width: 36px; height: 36px; border-radius: 7px; }
+    .app-title strong { display: block; font-size: 1.08rem; }
+    .app-title span { display: block; margin-top: 2px; color: var(--muted); font-size: .73rem; }
+    .view-chip {
+      padding: 6px 9px; border: 1px solid var(--line); border-radius: 999px;
+      color: var(--muted); background: #fff; font-size: .72rem; font-weight: 700;
+    }
+    .app-main { padding: 20px; background: #f7f8f9; }
+    .screen { display: none; }
+    html[data-context="entry"] .screen-entry,
+    html[data-context="history"] .screen-history,
+    html[data-context="care"] .screen-care,
+    html[data-context="export"] .screen-export { display: block; }
+    .status-band {
+      display: flex; align-items: center; justify-content: space-between; gap: 14px;
+      margin-bottom: 16px; padding: 13px 15px; border-left: 5px solid var(--accent);
+      background: var(--accent-soft);
+    }
+    .status-band strong { display: block; font-size: .96rem; }
+    .status-band span { color: var(--muted); font-size: .78rem; }
+    .date-value { white-space: nowrap; font-weight: 700; }
+    .mascot-message {
+      display: none; align-items: center; gap: 12px; margin-bottom: 16px; padding: 12px 15px;
+      border: 1px solid #efc8aa; border-radius: 8px; background: #fff7ef;
+    }
+    .mascot {
+      display: grid; place-items: center; width: 54px; height: 54px; flex: 0 0 54px;
+      border-radius: 50%; background: #f5dcc4; font-size: 1.75rem;
+    }
+    .mascot-message strong { display: block; }
+    .mascot-message span { color: var(--muted); font-size: .78rem; }
+    .panel { margin-bottom: 14px; border: 1px solid var(--line); border-radius: 7px; background: #fff; }
+    .panel:last-child { margin-bottom: 0; }
+    .panel-heading {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 13px 15px; border-bottom: 1px solid var(--line);
+    }
+    .panel-heading h2 { margin: 0; font-size: .98rem; letter-spacing: 0; }
+    .panel-heading span { color: var(--muted); font-size: .72rem; }
+    .panel-body { padding: 15px; }
+    .fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .field.full { grid-column: 1 / -1; }
+    .field-label { display: block; margin-bottom: 7px; color: #3d4852; font-size: .8rem; font-weight: 700; }
+    input[type="date"], select, textarea {
+      width: 100%; min-height: 48px; padding: 10px 12px; border: 2px solid #cdd4da;
+      border-radius: 6px; color: var(--ink); background: #fff;
+    }
+    textarea { min-height: 82px; resize: vertical; }
+    .choice-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+    .choice-grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .choice {
+      min-height: 48px; padding: 8px 5px; border: 2px solid #cdd4da; border-radius: 6px;
+      color: #46515b; background: #fff; font-weight: 700;
+    }
+    .choice[aria-pressed="true"] {
+      border-color: var(--accent); color: var(--accent-strong); background: var(--accent-soft);
+    }
+    .check-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+    .check-option {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      min-height: 50px; padding: 10px 12px; border: 1px solid var(--line);
+      border-radius: 6px; font-size: .84rem; font-weight: 700;
+    }
+    .check-option input { width: 22px; height: 22px; }
+    .primary-action {
+      width: 100%; min-height: 52px; margin-top: 2px; border: 0; border-radius: 7px;
+      color: #fff; background: var(--accent); font-weight: 800;
+    }
+    .record {
+      display: grid; grid-template-columns: 110px 1fr; gap: 16px;
+      padding: 15px 0; border-bottom: 1px solid var(--line);
+    }
+    .record:last-child { border-bottom: 0; }
+    .record-date { font-weight: 800; }
+    .record-date span { display: block; margin-top: 4px; color: var(--muted); font-size: .72rem; font-weight: 600; }
+    .record-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; }
+    .datum { color: var(--muted); font-size: .78rem; }
+    .datum strong { color: var(--ink); }
+    .note-row { grid-column: 1 / -1; margin-top: 3px; padding-top: 7px; border-top: 1px dashed #dfe3e6; }
+    .care-banner {
+      margin-bottom: 14px; padding: 12px 14px; border: 1px solid #b9ccd9;
+      background: #edf4f8; color: #234e68; font-weight: 800;
+    }
+    .care-table, .report-table { width: 100%; border-collapse: collapse; font-size: .78rem; }
+    .care-table th, .care-table td, .report-table th, .report-table td {
+      padding: 10px 8px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top;
+    }
+    .care-table th, .report-table th { color: #3f4a54; background: #eef1f3; }
+    .table-wrap { overflow-x: auto; }
+    .report-sheet { min-width: 620px; padding: 28px; background: #fff; box-shadow: 0 2px 8px rgba(30, 43, 53, .08); }
+    .report-header {
+      display: flex; align-items: end; justify-content: space-between; gap: 16px;
+      margin-bottom: 20px; padding-bottom: 12px; border-bottom: 2px solid #263744;
+    }
+    .report-header h2 { margin: 0; font-size: 1.1rem; }
+    .report-header p { margin: 4px 0 0; color: var(--muted); font-size: .72rem; }
+    .report-header strong { font-size: .76rem; }
+    .evaluation { padding-top: 4px; }
+    .evaluation h2 { margin: 0 0 12px; font-size: 1rem; }
+    .evaluation-list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
+    .evaluation-list li { padding: 12px 0; border-bottom: 1px solid var(--line); }
+    .evaluation-list strong { display: block; margin-bottom: 3px; font-size: .82rem; }
+    .evaluation-list span { display: block; color: var(--muted); font-size: .78rem; line-height: 1.55; }
+    .recommendation {
+      margin-top: 18px; padding: 14px; border: 1px solid #a9c8bb;
+      border-radius: 7px; background: #edf7f2;
+    }
+    .recommendation strong { display: block; color: #195c48; }
+    .recommendation p { margin: 5px 0 0; color: #365d51; font-size: .8rem; line-height: 1.55; }
+    .context-rule { margin-top: 12px; color: var(--muted); font-size: .76rem; line-height: 1.55; }
+    html[data-direction="factual"] {
+      --accent: #31556e; --accent-strong: #203f54; --accent-soft: #eaf0f4;
+    }
+    html[data-direction="friendly"] {
+      --accent: #b44f36; --accent-strong: #8f3927; --accent-soft: #fff0e9;
+    }
+    html[data-direction="friendly"][data-context="entry"] .mascot-message { display: flex; }
+    html[data-context="care"] .app-header,
+    html[data-context="export"] .app-header { border-top: 5px solid #31556e; }
+    html[data-context="care"] .app-main,
+    html[data-context="export"] .app-main { background: #f3f5f6; }
+    @media (max-width: 880px) {
+      .controls, .workspace { grid-template-columns: 1fr; }
+      .evaluation-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .evaluation-list li { padding: 10px; border-right: 1px solid var(--line); }
+    }
+    @media (max-width: 620px) {
+      .shell { padding: 16px 12px 32px; }
+      .page-header { align-items: flex-start; }
+      h1 { font-size: 1.18rem; }
+      .page-header p { overflow-wrap: anywhere; }
+      .segmented, .segmented.contexts { grid-template-columns: 1fr 1fr; }
+      .segment { min-height: 50px; }
+      .fields, .record-grid { grid-template-columns: 1fr; }
+      .field.full, .note-row { grid-column: auto; }
+      .check-row { grid-template-columns: 1fr; }
+      .record { grid-template-columns: 1fr; gap: 8px; }
+      .app-main { padding: 14px; }
+      .evaluation-list { grid-template-columns: 1fr; }
+      .evaluation-list li { padding: 10px 0; border-right: 0; }
+      .page-header p { font-size: .8rem; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="page-header">
+      <img class="brand-mark" src="../frontend/favicon.png" alt="">
+      <div>
+        <h1>GutPacer 表示方針比較</h1>
+        <p>同じ記録項目を、3つの表示方針と4つの利用場面で確認します。</p>
+      </div>
+    </header>
+    <section class="controls" aria-label="プロトタイプ切り替え">
+      <div class="control-group">
+        <span class="control-label" id="direction-label">表示方針</span>
+        <div class="segmented" role="tablist" aria-labelledby="direction-label">
+          <button class="segment" type="button" role="tab" data-direction-button="factual" aria-selected="false">事実中心<small>共有を重視</small></button>
+          <button class="segment" type="button" role="tab" data-direction-button="soft" aria-selected="true">やわらか標準<small>推奨候補</small></button>
+          <button class="segment" type="button" role="tab" data-direction-button="friendly" aria-selected="false">親しみ表示<small>家族入力のみ</small></button>
+        </div>
+      </div>
+      <div class="control-group">
+        <span class="control-label" id="context-label">利用場面</span>
+        <div class="segmented contexts" role="tablist" aria-labelledby="context-label">
+          <button class="segment" type="button" role="tab" data-context-button="entry" aria-selected="true">日々の入力</button>
+          <button class="segment" type="button" role="tab" data-context-button="history" aria-selected="false">履歴</button>
+          <button class="segment" type="button" role="tab" data-context-button="care" aria-selected="false">事業所閲覧</button>
+          <button class="segment" type="button" role="tab" data-context-button="export" aria-selected="false">PDF</button>
+        </div>
+      </div>
+    </section>
+    <div class="workspace">
+      <main class="prototype-frame" aria-live="polite">
+        <header class="app-header">
+          <div class="app-title">
+            <img src="../frontend/favicon.png" alt="">
+            <div><strong>GutPacer</strong><span>排便・服薬記録</span></div>
+          </div>
+          <span class="view-chip" id="view-chip">家族入力</span>
+        </header>
+        <div class="app-main">
+          <section class="screen screen-entry" aria-label="日々の入力画面">
+            <div class="status-band"><div><strong>最終記録：昨日</strong><span>記録内容を確認して、今日の状態を入力します。</span></div><span class="date-value">8月1日</span></div>
+            <div class="mascot-message"><div class="mascot" aria-hidden="true">💩</div><div><strong>きょうの記録をつけよう</strong><span>記録項目と保存内容は標準表示と同じです。</span></div></div>
+            <section class="panel">
+              <div class="panel-heading"><h2>基本情報</h2><span>必須項目</span></div>
+              <div class="panel-body fields">
+                <div><label class="field-label" for="prototype-date">日付</label><input id="prototype-date" type="date" value="2026-08-01"></div>
+                <div><span class="field-label">その日の調子（1〜5）</span><div class="choice-grid" data-choice-group><button class="choice" type="button" aria-pressed="false">1</button><button class="choice" type="button" aria-pressed="false">2</button><button class="choice" type="button" aria-pressed="true">3</button><button class="choice" type="button" aria-pressed="false">4</button><button class="choice" type="button" aria-pressed="false">5</button></div></div>
+              </div>
+            </section>
+            <section class="panel">
+              <div class="panel-heading"><h2>排便記録</h2><span>選択なしは「なし」</span></div>
+              <div class="panel-body fields">
+                <div><span class="field-label">量</span><div class="choice-grid three" data-choice-group><button class="choice" type="button" aria-pressed="false">小</button><button class="choice" type="button" aria-pressed="true">中</button><button class="choice" type="button" aria-pressed="false">大</button></div></div>
+                <div><label class="field-label" for="prototype-type">状態</label><select id="prototype-type"><option>硬い（コロコロ）</option><option selected>普通（バナナ状）</option><option>柔らかい（軟便）</option><option>水っぽい（下痢）</option></select></div>
+                <div class="field full"><span class="field-label">実施した処置・サポート</span><div class="check-row"><label class="check-option">浣腸 <input type="checkbox"></label><label class="check-option">摘便サポート <input type="checkbox"></label><label class="check-option">その他 <input type="checkbox"></label></div></div>
+              </div>
+            </section>
+            <section class="panel">
+              <div class="panel-heading"><h2>服薬記録</h2><span>朝・昼・夜</span></div>
+              <div class="panel-body"><div class="check-row"><label class="check-option">朝 <input type="checkbox" checked></label><label class="check-option">昼 <input type="checkbox"></label><label class="check-option">夜 <input type="checkbox"></label></div></div>
+            </section>
+            <section class="panel">
+              <div class="panel-heading"><h2>メモ</h2><span>任意</span></div>
+              <div class="panel-body"><label class="field-label" for="prototype-note">共有しておきたいこと</label><textarea id="prototype-note">食事・水分は普段どおり。</textarea></div>
+            </section>
+            <button class="primary-action" type="button">記録を保存する</button>
+          </section>
+          <section class="screen screen-history" aria-label="履歴画面">
+            <div class="status-band"><div><strong>記録履歴</strong><span>日付ごとの記録を同じ項目で確認できます。</span></div><span class="date-value">直近7日</span></div>
+            <section class="panel"><div class="panel-heading"><h2>最近の記録</h2><span>3件</span></div><div class="panel-body">
+              <article class="record"><div class="record-date">7月31日<span>自宅</span></div><div class="record-grid"><div class="datum">調子 <strong>3 / 5</strong></div><div class="datum">排便 <strong>あり・中・普通</strong></div><div class="datum">処置 <strong>なし</strong></div><div class="datum">服薬 <strong>朝・夜</strong></div><div class="datum note-row">メモ <strong>食事・水分は普段どおり。</strong></div></div></article>
+              <article class="record"><div class="record-date">7月30日<span>自宅</span></div><div class="record-grid"><div class="datum">調子 <strong>4 / 5</strong></div><div class="datum">排便 <strong>なし</strong></div><div class="datum">処置 <strong>なし</strong></div><div class="datum">服薬 <strong>朝・昼・夜</strong></div><div class="datum note-row">メモ <strong>特記事項なし。</strong></div></div></article>
+              <article class="record"><div class="record-date">7月29日<span>施設</span></div><div class="record-grid"><div class="datum">調子 <strong>3 / 5</strong></div><div class="datum">排便 <strong>あり・小・硬い</strong></div><div class="datum">処置 <strong>浣腸</strong></div><div class="datum">服薬 <strong>朝・夜</strong></div><div class="datum note-row">メモ <strong>施設から受け取った内容を転記。</strong></div></div></article>
+            </div></section>
+          </section>
+          <section class="screen screen-care" aria-label="事業所閲覧画面">
+            <div class="care-banner">事業所スタッフ閲覧用</div>
+            <section class="panel"><div class="panel-heading"><h2>排便・服薬記録</h2><span>直近7日</span></div><div class="panel-body table-wrap">
+              <table class="care-table"><thead><tr><th>日付</th><th>調子</th><th>排便</th><th>処置</th><th>服薬</th><th>メモ</th></tr></thead><tbody><tr><td>7/31</td><td>3 / 5</td><td>あり<br>中・普通</td><td>なし</td><td>朝・夜</td><td>食事・水分は普段どおり。</td></tr><tr><td>7/30</td><td>4 / 5</td><td>なし</td><td>なし</td><td>朝・昼・夜</td><td>特記事項なし。</td></tr><tr><td>7/29</td><td>3 / 5</td><td>あり<br>小・硬い</td><td>浣腸</td><td>朝・夜</td><td>施設から受け取った内容を転記。</td></tr></tbody></table>
+            </div></section>
+          </section>
+          <section class="screen screen-export" aria-label="PDF出力画面">
+            <div class="table-wrap"><div class="report-sheet">
+              <header class="report-header"><div><h2>GutPacer 排便・服薬記録レポート</h2><p>作成日時：2026年8月1日 10:00</p></div><strong>対象期間：7月26日〜8月1日</strong></header>
+              <table class="report-table"><thead><tr><th>日付</th><th>調子</th><th>排便</th><th>処置</th><th>服薬</th><th>メモ</th></tr></thead><tbody><tr><td>7/31</td><td>3 / 5</td><td>あり（中・普通）</td><td>なし</td><td>朝・夜</td><td>食事・水分は普段どおり。</td></tr><tr><td>7/30</td><td>4 / 5</td><td>なし</td><td>なし</td><td>朝・昼・夜</td><td>特記事項なし。</td></tr><tr><td>7/29</td><td>3 / 5</td><td>あり（小・硬い）</td><td>浣腸</td><td>朝・夜</td><td>施設から受け取った内容を転記。</td></tr></tbody></table>
+            </div></div>
+          </section>
+        </div>
+      </main>
+      <aside class="evaluation" aria-label="評価ポイント">
+        <h2 id="evaluation-title">やわらか標準</h2>
+        <ul class="evaluation-list">
+          <li><strong>家族の入力</strong><span id="family-evaluation">落ち着いた色と平易な日本語で、毎日の入力負担を抑える。</span></li>
+          <li><strong>履歴</strong><span id="history-evaluation">装飾を抑え、同じ構造のまま日付ごとの差を確認する。</span></li>
+          <li><strong>事業所・共有</strong><span>選択した表示方針を持ち込まず、事実中心の共通レイアウトを使う。</span></li>
+          <li><strong>PDF・書き出し</strong><span>文字と表だけで構成し、キャラクターや評価的な表現を含めない。</span></li>
+        </ul>
+        <div class="recommendation"><strong>現時点の推奨候補</strong><p>家族画面は「やわらか標準」、事業所閲覧とPDFは「事実中心」。親しみ表示は、利用者が選んだ場合の日々の入力画面だけに限定します。</p></div>
+        <p class="context-rule">表示方針を変えても、記録される日付・調子・排便・処置・服薬・メモ・場所の項目は変わりません。</p>
+      </aside>
+    </div>
+  </div>
+  <script>
+    const root = document.documentElement;
+    const directionContent = {
+      factual: {
+        title: '事実中心',
+        family: '高いコントラストと簡潔な見出しで、記録内容の確認を優先する。',
+        history: '色の意味を最小限にして、数値と記録項目を中心に読む。'
+      },
+      soft: {
+        title: 'やわらか標準',
+        family: '落ち着いた色と平易な日本語で、毎日の入力負担を抑える。',
+        history: '装飾を抑え、同じ構造のまま日付ごとの差を確認する。'
+      },
+      friendly: {
+        title: '親しみ表示（任意）',
+        family: '選択した家族だけに小さなキャラクターを表示する。保存項目は変えない。',
+        history: '履歴ではキャラクターを外し、やわらか標準と同じ読みやすさを保つ。'
+      }
+    };
+    const contextNames = {
+      entry: '家族入力', history: '家族の履歴', care: '事業所閲覧', export: 'PDFプレビュー'
+    };
+    function selectDirection(direction) {
+      root.dataset.direction = direction;
+      document.querySelectorAll('[data-direction-button]').forEach((button) => {
+        button.setAttribute('aria-selected', String(button.dataset.directionButton === direction));
+      });
+      const content = directionContent[direction];
+      document.getElementById('evaluation-title').textContent = content.title;
+      document.getElementById('family-evaluation').textContent = content.family;
+      document.getElementById('history-evaluation').textContent = content.history;
+    }
+    function selectContext(context) {
+      root.dataset.context = context;
+      document.querySelectorAll('[data-context-button]').forEach((button) => {
+        button.setAttribute('aria-selected', String(button.dataset.contextButton === context));
+      });
+      document.getElementById('view-chip').textContent = contextNames[context];
+    }
+    document.querySelectorAll('[data-direction-button]').forEach((button) => {
+      button.addEventListener('click', () => selectDirection(button.dataset.directionButton));
+    });
+    document.querySelectorAll('[data-context-button]').forEach((button) => {
+      button.addEventListener('click', () => selectContext(button.dataset.contextButton));
+    });
+    document.querySelectorAll('[data-choice-group]').forEach((group) => {
+      group.querySelectorAll('.choice').forEach((button) => {
+        button.addEventListener('click', () => {
+          group.querySelectorAll('.choice').forEach((candidate) => candidate.setAttribute('aria-pressed', 'false'));
+          button.setAttribute('aria-pressed', 'true');
+        });
+      });
+    });
+    const params = new URLSearchParams(window.location.search);
+    if (Object.hasOwn(directionContent, params.get('direction'))) {
+      selectDirection(params.get('direction'));
+    }
+    if (Object.hasOwn(contextNames, params.get('context'))) {
+      selectContext(params.get('context'));
+    }
+  </script>
+</body>
+</html>
