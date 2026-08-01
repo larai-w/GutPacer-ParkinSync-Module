@@ -2,7 +2,7 @@
   "name": "veai-gutpacer",
   "private": true,
   "type": "module",
-  "description": "GutPacer - serverless bowel movement and Movicol tracking app for Parkinson's care",
+  "description": "GutPacer - condition-agnostic family bowel and medication record",
   "scripts": {
     "test": "node scripts/smoke-test.mjs",
     "setup:v2:tables": "node scripts/create-v2-tables.mjs",

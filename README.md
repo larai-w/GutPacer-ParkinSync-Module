@@ -1,6 +1,6 @@
 # GutPacer
 
-**A serverless bowel-movement and laxative tracking app for family caregivers — with optional daily reminders. Part of the ParkinSync care-data ecosystem.**
+**A serverless bowel and medication record for a configured family household, with PDF export, a read-only care view, and scheduled LINE record reminders. Part of the ParkinSync care-data ecosystem.**
 
 Caregivers log daily bowel events and medication intake through a mobile-friendly single-page app backed by AWS Lambda and DynamoDB. The tool itself is condition-agnostic; data collected here can feed the broader ParkinSync analytics pipeline.
 
@@ -10,7 +10,7 @@ Caregivers log daily bowel events and medication intake through a mobile-friendl
 
 ## Why this exists
 
-Bowel rhythm is easy to lose track of in daily home care, yet it matters: constipation is a common issue for many older people and for people with chronic conditions, and in Parkinson's Disease specifically it is reported to affect how L-dopa is absorbed ("delayed-on" / "wearing-off"). GutPacer — which began from that Parkinson's care context — creates a single point of truth for caregivers to track bowel patterns and laxative intake, building a dataset that can later feed correlation analysis within ParkinSync.
+Daily bowel, medication, and condition details can be difficult to reconstruct during family conversations or appointments. GutPacer gives one configured family household a consistent place to record those observations and export them for review. It began in a Parkinson's care context, but the current tool is condition-agnostic: it does not interpret a pattern, diagnose a condition, or recommend treatment.
 
 ---
 
@@ -42,8 +42,8 @@ Notifier Lambda: backend/notifier/index.mjs
   ├─ EventBridge cron: 08:00 JST daily  (cron 0 23 * * ? * UTC)
   ├─ Reads location from gutpacer-settings
   │     └─ Skips LINE push when location = "facility"
-  ├─ 1-day reminder: yesterday no stool, day before had stool
-  ├─ 2+ day warning: counts up to 7 consecutive days without stool
+  ├─ 1-day reminder: yesterday has no bowel "present" record
+  ├─ Multi-day record reminder: counts up to 7 days without a bowel "present" record
   └─ LINE Messaging API  (Flex Message push)
 
 DynamoDB PITR: enabled on both tables (as of 2026-07-08)
@@ -82,5 +82,8 @@ software. What it demonstrates:
   **[display-direction evaluation](docs/DISPLAY_DIRECTION_EVALUATION.md)** compares factual,
   soft non-mascot, and optional friendly treatments across family entry, history, care-staff,
   and PDF contexts before any production default changes.
+- **Public claim control** — the
+  **[public copy audit](docs/PUBLIC_COPY_AUDIT.md)** records the implemented scope, unreleased
+  boundaries, and health-copy rules applied across the app, repository, product pages, and blog.
 
 Related engineering write-ups are on the [VEAI LAB blog](https://veai.jp/blog/).

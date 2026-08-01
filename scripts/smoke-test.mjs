@@ -3,6 +3,7 @@
 // 実行: npm test  (要: npm install)
 
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 
 process.env.ACCESS_PIN = "1234";
 
@@ -166,6 +167,24 @@ await test("LINE auth: subなしのトークンを拒否する", async () => {
         }),
         /no user subject/
     );
+});
+
+await test("Public copy: 記録事実と未公開境界を守り治療指示を含めない", async () => {
+    const paths = [
+        "frontend/index.html",
+        "frontend/privacy.html",
+        "frontend/terms.html",
+        "backend/notifier/index.mjs",
+        "README.md"
+    ];
+    const copy = (await Promise.all(
+        paths.map((path) => readFile(new URL(`../${path}`, import.meta.url), "utf8"))
+    )).join("\n");
+
+    assert.doesNotMatch(copy, /浣腸してください|浣腸を検討|腸のペースを整える/);
+    assert.match(copy, /最後の排便記録/);
+    assert.match(copy, /単一家族/);
+    assert.match(copy, /LINEログイン版は、運営者から個別に案内された場合/);
 });
 
 let failed = 0;

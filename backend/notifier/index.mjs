@@ -73,7 +73,7 @@ function buildAppButton(label, color) {
 function buildReminderMessage() {
     return {
         type: "flex",
-        altText: "GutPacer: 昨日の記録がまだありません",
+        altText: "GutPacer: 昨日は排便「あり」の記録がありません",
         contents: {
             type: "bubble",
             header: {
@@ -83,7 +83,7 @@ function buildReminderMessage() {
                 paddingAll: "16px",
                 contents: [{
                     type: "text",
-                    text: "📝 記録の入力をお願いします",
+                    text: "記録を確認してください",
                     weight: "bold",
                     color: "#ffffff",
                     size: "md",
@@ -96,7 +96,7 @@ function buildReminderMessage() {
                 paddingAll: "16px",
                 contents: [{
                     type: "text",
-                    text: "昨日の記録がまだありません。アプリから記録を入力してください。",
+                    text: "昨日は排便「あり」の記録がありません。アプリで記録内容を確認してください。",
                     wrap: true,
                     size: "sm",
                     color: "#374151"
@@ -112,20 +112,20 @@ function buildReminderMessage() {
     };
 }
 
-function buildWarningMessage(missingDays) {
+function buildMultiDayReminderMessage(missingDays) {
     return {
         type: "flex",
-        altText: "GutPacer: " + missingDays + "日間記録がありません",
+        altText: "GutPacer: 直近" + missingDays + "日間、排便「あり」の記録がありません",
         contents: {
             type: "bubble",
             header: {
                 type: "box",
                 layout: "vertical",
-                backgroundColor: "#ef4444",
+                backgroundColor: "#b45309",
                 paddingAll: "16px",
                 contents: [{
                     type: "text",
-                    text: "⚠️ " + missingDays + "日間記録がありません",
+                    text: "記録を確認してください",
                     weight: "bold",
                     color: "#ffffff",
                     size: "md",
@@ -138,7 +138,7 @@ function buildWarningMessage(missingDays) {
                 paddingAll: "16px",
                 contents: [{
                     type: "text",
-                    text: missingDays + "日間記録がありません。体調はどうですか？",
+                    text: "直近" + missingDays + "日間、排便「あり」の記録がありません。アプリで記録内容を確認してください。",
                     wrap: true,
                     size: "sm",
                     color: "#374151"
@@ -148,7 +148,7 @@ function buildWarningMessage(missingDays) {
                 type: "box",
                 layout: "vertical",
                 paddingAll: "12px",
-                contents: [buildAppButton("アプリを開く", "#ef4444")]
+                contents: [buildAppButton("記録を確認", "#b45309")]
             }
         }
     };
@@ -186,7 +186,7 @@ export const handler = async () => {
     const dayBeforeHadStool = await hadStool(dayBefore);
 
     if (!dayBeforeHadStool) {
-        // 昨日も一昨日も排便なし → 連続日数を算出して警告
+        // 昨日も一昨日も排便「あり」の記録なし → 連続日数を算出して確認通知
         let missingDays = 2;
         while (missingDays < 7) {
             const older = getJSTDate(-(missingDays + 1));
@@ -197,9 +197,9 @@ export const handler = async () => {
                 break;
             }
         }
-        console.log(missingDays + " days without records - sending warning");
-        await sendLineMessage([buildWarningMessage(missingDays)]);
-        return { statusCode: 200, body: "Sent: " + missingDays + "-day warning" };
+        console.log(missingDays + " days without a bowel-present record - sending reminder");
+        await sendLineMessage([buildMultiDayReminderMessage(missingDays)]);
+        return { statusCode: 200, body: "Sent: multi-day record reminder" };
     }
 
     // 昨日だけ記録なし → 通常の催促通知
