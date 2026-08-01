@@ -2,21 +2,28 @@
 
 Related issue: [#36](https://github.com/larai-w/GutPacer-ParkinSync-Module/issues/36)
 
-The interactive [display-direction prototype](../prototypes/display-directions.html) compares the same GutPacer record in four contexts. It is a design-decision artifact, not a production release.
+The interactive [display-direction prototype](../prototypes/display-directions.html) compares the same GutPacer record in four contexts. It is a design-decision artifact, not a production release. The production baseline reflects the frontend on 2026-08-01 but uses static sample data and does not connect to authentication or APIs.
 
 ## Compared directions
 
 | Direction | Daily entry | History | Care-staff view | PDF/export |
 | --- | --- | --- | --- | --- |
+| Current production baseline | Narrow single-column layout, indigo controls, rounded cards, mixed Japanese/English labels | Current card density and visual hierarchy | Current indigo viewing treatment | Current factual report structure |
 | Factual standard | High contrast and concise labels | Structured, low-decoration records | Common factual layout | Common factual table |
 | Soft non-mascot standard | Calmer colors and plain Japanese | Same fields with restrained visual grouping | Common factual layout | Common factual table |
 | Optional friendly treatment | Small opt-in character in family entry only | Falls back to a non-mascot presentation | Common factual layout; no character | Common factual table; no character |
 
-All directions preserve the current structured fields: date, condition, bowel occurrence/amount/type, recorded care support, medication timing, notes, and location. A presentation preference must not change stored or exported data.
+All four directions preserve the current structured fields: date, condition, bowel occurrence/amount/type, recorded care support, medication timing, notes, and location. A presentation preference must not change stored or exported data.
+
+## Baseline purpose
+
+The current production baseline is a control, not a fourth redesign recommendation. It keeps the existing visual width, indigo palette, rounded cards, mixed-language section headings, and bowel-section emoji visible so that reviewers can identify what would actually change. It contains no real family records, PIN, API endpoint, or facility information.
 
 ## Decision
 
 The candidate default is **soft non-mascot standard** for the family experience. Care-staff viewing and PDF/export use the **factual standard** regardless of the family's presentation preference.
+
+The current production UI remains unchanged until the implementation issue is reviewed and completed. The baseline stays available as comparison and rollback evidence after a new default is selected.
 
 The friendly treatment remains an optional presentation layer for the private family daily-entry context. It is not the GutPacer product identity, it does not appear in shared records, and it does not assign a positive or negative meaning to a recorded outcome.
 

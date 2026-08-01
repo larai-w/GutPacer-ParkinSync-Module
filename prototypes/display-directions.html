@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ja" data-direction="soft" data-context="entry">
+<html lang="ja" data-direction="current" data-context="entry">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -34,7 +34,7 @@
     .control-group { min-width: 0; }
     .control-label { display: block; margin-bottom: 8px; color: var(--muted); font-size: .78rem; font-weight: 700; }
     .segmented {
-      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px;
+      display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px;
       padding: 4px; background: #e5e9ec; border-radius: 8px;
     }
     .segmented.contexts { grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -61,8 +61,15 @@
     }
     .app-title { display: flex; align-items: center; gap: 10px; }
     .app-title img { width: 36px; height: 36px; border-radius: 7px; }
+    .current-brand-icon {
+      display: none; place-items: center; width: 64px; height: 64px; border-radius: 16px;
+      color: #fff; background: linear-gradient(135deg, #2563eb, #3730a3);
+      box-shadow: 0 4px 8px rgba(30, 41, 59, .18); font-size: 2rem; font-weight: 800;
+    }
+    .current-only { display: none; }
     .app-title strong { display: block; font-size: 1.08rem; }
-    .app-title span { display: block; margin-top: 2px; color: var(--muted); font-size: .73rem; }
+    .app-title div span { display: block; margin-top: 2px; color: var(--muted); font-size: .73rem; }
+    .app-title div span.current-only { display: none; }
     .view-chip {
       padding: 6px 9px; border: 1px solid var(--line); border-radius: 999px;
       color: var(--muted); background: #fff; font-size: .72rem; font-weight: 700;
@@ -170,6 +177,74 @@
     .recommendation strong { display: block; color: #195c48; }
     .recommendation p { margin: 5px 0 0; color: #365d51; font-size: .8rem; line-height: 1.55; }
     .context-rule { margin-top: 12px; color: var(--muted); font-size: .76rem; line-height: 1.55; }
+    html[data-direction="current"] {
+      --ink: #1e293b; --muted: #64748b; --line: #e2e8f0; --surface: #fff;
+      --canvas: #f8fafc; --accent: #4f46e5; --accent-strong: #312e81;
+      --accent-soft: #eef2ff;
+    }
+    html[data-direction="current"] .prototype-frame {
+      width: min(100%, 448px); justify-self: center; border: 0; border-radius: 0;
+      background: #f8fafc; box-shadow: 0 12px 32px rgba(30, 41, 59, .14);
+    }
+    html[data-direction="current"][data-context="export"] .prototype-frame { width: 100%; }
+    html[data-direction="current"] .app-header {
+      flex-direction: column; justify-content: center; min-height: 0; padding: 24px 16px;
+      text-align: center; box-shadow: 0 1px 3px rgba(15, 23, 42, .08);
+    }
+    html[data-direction="current"] .app-title { flex-direction: column; gap: 8px; }
+    html[data-direction="current"] .redesign-brand-icon,
+    html[data-direction="current"] .redesign-only { display: none; }
+    html[data-direction="current"] .current-brand-icon { display: grid; }
+    html[data-direction="current"] .current-only { display: inline; }
+    html[data-direction="current"] .app-title div span.current-only { display: inline; }
+    html[data-direction="current"] .app-title strong { margin-top: 2px; color: #1e1b4b; font-size: 1.25rem; }
+    html[data-direction="current"] .app-title div span { max-width: 360px; color: #64748b; font-size: .72rem; }
+    html[data-direction="current"] .view-chip { display: none; }
+    html[data-direction="current"] .app-main { padding: 24px 16px 48px; background: #f8fafc; }
+    html[data-direction="current"] .status-band {
+      display: block; margin-bottom: 16px; padding: 16px; border: 1px solid #f1f5f9;
+      border-left: 1px solid #f1f5f9; border-radius: 16px; text-align: center;
+      background: #fff; box-shadow: 0 1px 3px rgba(15, 23, 42, .07);
+    }
+    .current-status-label {
+      display: none; margin-bottom: 6px; color: #94a3b8; font-size: .64rem;
+      font-weight: 800; text-transform: uppercase;
+    }
+    html[data-direction="current"] .current-status-label { display: block; }
+    html[data-direction="current"] .status-band .date-value { display: none; }
+    html[data-direction="current"] .panel {
+      margin-bottom: 16px; border-color: #f1f5f9; border-radius: 16px;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, .07);
+    }
+    html[data-direction="current"] .panel-heading { padding: 20px 20px 12px; border-bottom: 0; }
+    html[data-direction="current"] .panel-heading h2 { color: #0f172a; font-size: 1rem; }
+    html[data-direction="current"] .panel-heading > span { display: none; }
+    html[data-direction="current"] .panel-body { padding: 0 20px 20px; }
+    html[data-direction="current"] .fields { grid-template-columns: 1fr; gap: 16px; }
+    html[data-direction="current"] input[type="date"],
+    html[data-direction="current"] select,
+    html[data-direction="current"] textarea {
+      border-color: #e2e8f0; border-radius: 12px; background: #f8fafc;
+    }
+    html[data-direction="current"] .choice {
+      border-color: #e2e8f0; border-radius: 12px; color: #475569; background: #fff;
+    }
+    html[data-direction="current"] .choice[aria-pressed="true"] {
+      border-color: #4f46e5; color: #3730a3; background: #eef2ff;
+    }
+    html[data-direction="current"] .check-option {
+      border-color: #e2e8f0; border-radius: 12px; color: #334155; background: #f8fafc;
+    }
+    html[data-direction="current"] .treatment-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    html[data-direction="current"] .treatment-other { display: none; }
+    html[data-direction="current"] .medication-row { grid-template-columns: 1fr; }
+    html[data-direction="current"] .primary-action {
+      min-height: 56px; border-radius: 16px; background: #4f46e5;
+      box-shadow: 0 4px 8px rgba(79, 70, 229, .22);
+    }
+    html[data-direction="current"] .record { grid-template-columns: 1fr; gap: 8px; }
+    html[data-direction="current"] .record-grid { grid-template-columns: 1fr; }
+    html[data-direction="current"] .note-row { grid-column: auto; }
     html[data-direction="factual"] {
       --accent: #31556e; --accent-strong: #203f54; --accent-soft: #eaf0f4;
     }
@@ -183,7 +258,7 @@
     html[data-context="export"] .app-main { background: #f3f5f6; }
     @media (max-width: 880px) {
       .controls, .workspace { grid-template-columns: 1fr; }
-      .evaluation-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .evaluation-list { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
       .evaluation-list li { padding: 10px; border-right: 1px solid var(--line); }
     }
     @media (max-width: 620px) {
@@ -213,15 +288,16 @@
       <img class="brand-mark" src="../frontend/favicon.png" alt="">
       <div>
         <h1>GutPacer 表示方針比較</h1>
-        <p>同じ記録項目を、3つの表示方針と4つの利用場面で確認します。</p>
+        <p>同じ記録項目を、現行UIを含む4つの表示方針と4つの利用場面で確認します。</p>
       </div>
     </header>
     <section class="controls" aria-label="プロトタイプ切り替え">
       <div class="control-group">
         <span class="control-label" id="direction-label">表示方針</span>
         <div class="segmented" role="tablist" aria-labelledby="direction-label">
+          <button class="segment" type="button" role="tab" data-direction-button="current" aria-selected="true">現行UI<small>比較基準</small></button>
           <button class="segment" type="button" role="tab" data-direction-button="factual" aria-selected="false">事実中心<small>共有を重視</small></button>
-          <button class="segment" type="button" role="tab" data-direction-button="soft" aria-selected="true">やわらか標準<small>推奨候補</small></button>
+          <button class="segment" type="button" role="tab" data-direction-button="soft" aria-selected="false">やわらか標準<small>推奨候補</small></button>
           <button class="segment" type="button" role="tab" data-direction-button="friendly" aria-selected="false">親しみ表示<small>家族入力のみ</small></button>
         </div>
       </div>
@@ -239,43 +315,44 @@
       <main class="prototype-frame" aria-live="polite">
         <header class="app-header">
           <div class="app-title">
-            <img src="../frontend/favicon.png" alt="">
-            <div><strong>GutPacer</strong><span>排便・服薬記録</span></div>
+            <img class="redesign-brand-icon" src="../frontend/favicon.png" alt="">
+            <span class="current-brand-icon" aria-hidden="true">↻</span>
+            <div><strong>GutPacer</strong><span class="redesign-only">排便・服薬記録</span><span class="current-only">排便・服薬を残す家族向け記録 // Module of ParkinSync</span></div>
           </div>
           <span class="view-chip" id="view-chip">家族入力</span>
         </header>
         <div class="app-main">
           <section class="screen screen-entry" aria-label="日々の入力画面">
-            <div class="status-band"><div><strong>最終記録：昨日</strong><span>記録内容を確認して、今日の状態を入力します。</span></div><span class="date-value">8月1日</span></div>
+            <div class="status-band"><div><span class="current-status-label">現在の排便ステータス (Status)</span><strong><span class="redesign-only">最終記録：昨日</span><span class="current-only">最後の排便記録：7月31日</span></strong><span class="redesign-only">記録内容を確認して、今日の状態を入力します。</span></div><span class="date-value">8月1日</span></div>
             <div class="mascot-message"><div class="mascot" aria-hidden="true">💩</div><div><strong>きょうの記録をつけよう</strong><span>記録項目と保存内容は標準表示と同じです。</span></div></div>
-            <section class="panel">
-              <div class="panel-heading"><h2>基本情報</h2><span>必須項目</span></div>
+            <section class="panel panel-basic">
+              <div class="panel-heading"><h2><span class="redesign-only">基本情報</span><span class="current-only">📅 Daily Status (基本情報)</span></h2><span>必須項目</span></div>
               <div class="panel-body fields">
                 <div><label class="field-label" for="prototype-date">日付</label><input id="prototype-date" type="date" value="2026-08-01"></div>
                 <div><span class="field-label">その日の調子（1〜5）</span><div class="choice-grid" data-choice-group><button class="choice" type="button" aria-pressed="false">1</button><button class="choice" type="button" aria-pressed="false">2</button><button class="choice" type="button" aria-pressed="true">3</button><button class="choice" type="button" aria-pressed="false">4</button><button class="choice" type="button" aria-pressed="false">5</button></div></div>
               </div>
             </section>
-            <section class="panel">
-              <div class="panel-heading"><h2>排便記録</h2><span>選択なしは「なし」</span></div>
+            <section class="panel panel-bowel">
+              <div class="panel-heading"><h2><span class="redesign-only">排便記録</span><span class="current-only">💩 Bowel Tracker (排便記録)</span></h2><span>選択なしは「なし」</span></div>
               <div class="panel-body fields">
                 <div><span class="field-label">量</span><div class="choice-grid three" data-choice-group><button class="choice" type="button" aria-pressed="false">小</button><button class="choice" type="button" aria-pressed="true">中</button><button class="choice" type="button" aria-pressed="false">大</button></div></div>
                 <div><label class="field-label" for="prototype-type">状態</label><select id="prototype-type"><option>硬い（コロコロ）</option><option selected>普通（バナナ状）</option><option>柔らかい（軟便）</option><option>水っぽい（下痢）</option></select></div>
-                <div class="field full"><span class="field-label">実施した処置・サポート</span><div class="check-row"><label class="check-option">浣腸 <input type="checkbox"></label><label class="check-option">摘便サポート <input type="checkbox"></label><label class="check-option">その他 <input type="checkbox"></label></div></div>
+                <div class="field full"><span class="field-label">実施した処置・サポート</span><div class="check-row treatment-row"><label class="check-option">浣腸 <input type="checkbox"></label><label class="check-option">摘便サポート <input type="checkbox"></label><label class="check-option treatment-other">その他 <input type="checkbox"></label></div></div>
               </div>
             </section>
-            <section class="panel">
-              <div class="panel-heading"><h2>服薬記録</h2><span>朝・昼・夜</span></div>
-              <div class="panel-body"><div class="check-row"><label class="check-option">朝 <input type="checkbox" checked></label><label class="check-option">昼 <input type="checkbox"></label><label class="check-option">夜 <input type="checkbox"></label></div></div>
+            <section class="panel panel-medication">
+              <div class="panel-heading"><h2><span class="redesign-only">服薬記録</span><span class="current-only">💊 Medication Tracker (モヴィコール)</span></h2><span>朝・昼・夜</span></div>
+              <div class="panel-body"><div class="check-row medication-row"><label class="check-option">朝 <input type="checkbox" checked></label><label class="check-option">昼 <input type="checkbox"></label><label class="check-option">夜 <input type="checkbox"></label></div></div>
             </section>
-            <section class="panel">
-              <div class="panel-heading"><h2>メモ</h2><span>任意</span></div>
+            <section class="panel panel-notes">
+              <div class="panel-heading"><h2><span class="redesign-only">メモ</span><span class="current-only">📝 Notes (ノート)</span></h2><span>任意</span></div>
               <div class="panel-body"><label class="field-label" for="prototype-note">共有しておきたいこと</label><textarea id="prototype-note">食事・水分は普段どおり。</textarea></div>
             </section>
             <button class="primary-action" type="button">記録を保存する</button>
           </section>
           <section class="screen screen-history" aria-label="履歴画面">
             <div class="status-band"><div><strong>記録履歴</strong><span>日付ごとの記録を同じ項目で確認できます。</span></div><span class="date-value">直近7日</span></div>
-            <section class="panel"><div class="panel-heading"><h2>最近の記録</h2><span>3件</span></div><div class="panel-body">
+            <section class="panel"><div class="panel-heading"><h2><span class="redesign-only">最近の記録</span><span class="current-only">📊 履歴 (History)</span></h2><span>3件</span></div><div class="panel-body">
               <article class="record"><div class="record-date">7月31日<span>自宅</span></div><div class="record-grid"><div class="datum">調子 <strong>3 / 5</strong></div><div class="datum">排便 <strong>あり・中・普通</strong></div><div class="datum">処置 <strong>なし</strong></div><div class="datum">服薬 <strong>朝・夜</strong></div><div class="datum note-row">メモ <strong>食事・水分は普段どおり。</strong></div></div></article>
               <article class="record"><div class="record-date">7月30日<span>自宅</span></div><div class="record-grid"><div class="datum">調子 <strong>4 / 5</strong></div><div class="datum">排便 <strong>なし</strong></div><div class="datum">処置 <strong>なし</strong></div><div class="datum">服薬 <strong>朝・昼・夜</strong></div><div class="datum note-row">メモ <strong>特記事項なし。</strong></div></div></article>
               <article class="record"><div class="record-date">7月29日<span>施設</span></div><div class="record-grid"><div class="datum">調子 <strong>3 / 5</strong></div><div class="datum">排便 <strong>あり・小・硬い</strong></div><div class="datum">処置 <strong>浣腸</strong></div><div class="datum">服薬 <strong>朝・夜</strong></div><div class="datum note-row">メモ <strong>施設から受け取った内容を転記。</strong></div></div></article>
@@ -296,14 +373,14 @@
         </div>
       </main>
       <aside class="evaluation" aria-label="評価ポイント">
-        <h2 id="evaluation-title">やわらか標準</h2>
+        <h2 id="evaluation-title">現行UI（比較基準）</h2>
         <ul class="evaluation-list">
-          <li><strong>家族の入力</strong><span id="family-evaluation">落ち着いた色と平易な日本語で、毎日の入力負担を抑える。</span></li>
-          <li><strong>履歴</strong><span id="history-evaluation">装飾を抑え、同じ構造のまま日付ごとの差を確認する。</span></li>
+          <li><strong>家族の入力</strong><span id="family-evaluation">本番の狭い1列構成、インディゴ色、丸いカード、日英併記を比較基準として再現する。</span></li>
+          <li><strong>履歴</strong><span id="history-evaluation">現行のカード表現と情報密度を、変更案を評価する基準にする。</span></li>
           <li><strong>事業所・共有</strong><span>選択した表示方針を持ち込まず、事実中心の共通レイアウトを使う。</span></li>
           <li><strong>PDF・書き出し</strong><span>文字と表だけで構成し、キャラクターや評価的な表現を含めない。</span></li>
         </ul>
-        <div class="recommendation"><strong>現時点の推奨候補</strong><p>家族画面は「やわらか標準」、事業所閲覧とPDFは「事実中心」。親しみ表示は、利用者が選んだ場合の日々の入力画面だけに限定します。</p></div>
+        <div class="recommendation"><strong>現時点の推奨候補</strong><p>現行UIを比較基準として残したうえで、家族画面は「やわらか標準」、事業所閲覧とPDFは「事実中心」。親しみ表示は、利用者が選んだ場合の日々の入力画面だけに限定します。</p></div>
         <p class="context-rule">表示方針を変えても、記録される日付・調子・排便・処置・服薬・メモ・場所の項目は変わりません。</p>
       </aside>
     </div>
@@ -311,6 +388,11 @@
   <script>
     const root = document.documentElement;
     const directionContent = {
+      current: {
+        title: '現行UI（比較基準）',
+        family: '本番の狭い1列構成、インディゴ色、丸いカード、日英併記を比較基準として再現する。',
+        history: '現行のカード表現と情報密度を、変更案を評価する基準にする。'
+      },
       factual: {
         title: '事実中心',
         family: '高いコントラストと簡潔な見出しで、記録内容の確認を優先する。',
