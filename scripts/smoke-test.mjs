@@ -187,6 +187,21 @@ await test("Public copy: 記録事実と未公開境界を守り治療指示を�
     assert.match(copy, /LINEログイン版は、運営者から個別に案内された場合/);
 });
 
+await test("Display prototype: 現行UIを含む4方向を静的データだけで比較できる", async () => {
+    const prototype = await readFile(
+        new URL("../prototypes/display-directions.html", import.meta.url),
+        "utf8"
+    );
+    const directionButtons = prototype.match(/data-direction-button=/g) || [];
+
+    assert.equal(directionButtons.length, 4);
+    assert.match(prototype, /data-direction="current"/);
+    assert.match(prototype, /現行UI（比較基準）/);
+    assert.match(prototype, /やわらか標準/);
+    assert.match(prototype, /親しみ表示/);
+    assert.doesNotMatch(prototype, /config\.js|fetch\s*\(/);
+});
+
 let failed = 0;
 for (const r of results) {
     if (r.ok) {
