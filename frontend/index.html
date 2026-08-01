@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex, nofollow">
-    <title>GutPacer // 腸のペースを整える排便トラッカー</title>
+    <title>GutPacer // 家族の排便・服薬記録</title>
     <link rel="icon" type="image/png" sizes="64x64" href="./favicon.png">
     <link rel="apple-touch-icon" href="./apple-touch-icon.png">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -53,7 +53,7 @@
             </div>
             <h1 class="text-xl font-bold tracking-tight mt-2 text-indigo-950">GutPacer</h1>
             <p class="text-xs text-slate-500 font-medium">
-                <span class="family-only">腸のペースを整える排便トラッカー // Module of ParkinSync</span>
+                <span class="family-only">排便・服薬を残す家族向け記録 // Module of ParkinSync</span>
                 <span class="care-only">排便・服薬 記録ビュー（事業所閲覧用）</span>
             </p>
         </div>
@@ -67,7 +67,7 @@
         </div>
 
         <section class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 text-center space-y-1.5">
-            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">現在の排便ステータス (Status)</div>
+            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">最後の排便記録 (Latest record)</div>
             <div id="lastStoolDisplay" class="flex justify-center items-center">
                 <span class="text-slate-400 text-xs animate-pulse">データを読み込み中...</span>
             </div>
@@ -414,9 +414,19 @@
         function updateLastStoolDisplay(logs) {
             const displayElem = document.getElementById('lastStoolDisplay');
             const lastStoolLog = logs.find(log => log.hasStool);
+
+            function renderStatus(text, badgeClass) {
+                const badge = document.createElement('span');
+                badge.className = `${badgeClass} px-4 py-2 rounded-xl text-xs sm:text-sm tracking-wide shadow-sm block w-full text-center`;
+                badge.textContent = text;
+                displayElem.replaceChildren(badge);
+            }
             
             if (!lastStoolLog) {
-                displayElem.innerHTML = `<span class="bg-slate-100 text-slate-600 px-4 py-2 rounded-full text-xs font-bold border border-slate-200"><i class="fa-solid fa-circle-question mr-1"></i> 排便データがまだありません</span>`;
+                renderStatus(
+                    '排便「あり」の記録はまだありません',
+                    'bg-slate-100 text-slate-600 border border-slate-200'
+                );
                 return;
             }
             
@@ -433,19 +443,19 @@
             
             if (diffDays === 0) {
                 badgeClass = "bg-emerald-50 text-emerald-700 border border-emerald-200";
-                text = `✨ 最後の排便：今日 (${lastStoolLog.date})`;
+                text = `最後の排便記録：今日（${lastStoolLog.date}）`;
             } else if (diffDays === 1) {
                 badgeClass = "bg-blue-50 text-blue-700 border border-blue-200";
-                text = `👍 最後の排便：昨日・1日前 (${lastStoolLog.date})`;
+                text = `最後の排便記録：昨日（${lastStoolLog.date}）`;
             } else if (diffDays === 2) {
-                badgeClass = "bg-amber-50 text-amber-700 border border-amber-300 font-bold animate-pulse";
-                text = `⚠️ 最後の排便：2日前 (${lastStoolLog.date}) ➔ 浣腸を検討`;
+                badgeClass = "bg-amber-50 text-amber-800 border border-amber-300 font-bold";
+                text = `最後の排便記録：2日前（${lastStoolLog.date}）`;
             } else {
-                badgeClass = "bg-rose-50 text-rose-700 border border-rose-300 font-black";
-                text = `🚨 最後の排便：${diffDays}日前 (${lastStoolLog.date}) ➔ 浣腸してください`;
+                badgeClass = "bg-rose-50 text-rose-800 border border-rose-300 font-bold";
+                text = `最後の排便記録：${diffDays}日前（${lastStoolLog.date}）`;
             }
             
-            displayElem.innerHTML = `<span class="${badgeClass} px-4 py-2 rounded-xl text-xs sm:text-sm tracking-wide shadow-sm block w-full text-center">${text}</span>`;
+            renderStatus(text, badgeClass);
         }
 
         // ログと場所設定を一括取得する

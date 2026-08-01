@@ -58,10 +58,10 @@ def build_app_button(label, color):
 
 
 def build_reminder_message():
-    """昨日1日だけ記録がない場合の催促通知"""
+    """昨日1日だけ排便「あり」の記録がない場合の確認通知"""
     return {
         "type": "flex",
-        "altText": "GutPacer: 昨日の記録がまだありません",
+        "altText": "GutPacer: 昨日は排便「あり」の記録がありません",
         "contents": {
             "type": "bubble",
             "header": {
@@ -72,7 +72,7 @@ def build_reminder_message():
                 "contents": [
                     {
                         "type": "text",
-                        "text": "📝 記録の入力をお願いします",
+                        "text": "記録を確認してください",
                         "weight": "bold",
                         "color": "#ffffff",
                         "size": "md",
@@ -87,7 +87,7 @@ def build_reminder_message():
                 "contents": [
                     {
                         "type": "text",
-                        "text": "昨日の記録がまだありません。アプリから記録を入力してください。",
+                        "text": "昨日は排便「あり」の記録がありません。アプリで記録内容を確認してください。",
                         "wrap": True,
                         "size": "sm",
                         "color": "#374151",
@@ -104,22 +104,24 @@ def build_reminder_message():
     }
 
 
-def build_warning_message(missing_days):
-    """2日以上記録がない場合の警告通知"""
+def build_multi_day_reminder_message(missing_days):
+    """2日以上排便「あり」の記録がない場合の確認通知"""
     return {
         "type": "flex",
-        "altText": "GutPacer: " + str(missing_days) + "日間記録がありません",
+        "altText": "GutPacer: 直近"
+        + str(missing_days)
+        + "日間、排便「あり」の記録がありません",
         "contents": {
             "type": "bubble",
             "header": {
                 "type": "box",
                 "layout": "vertical",
-                "backgroundColor": "#ef4444",
+                "backgroundColor": "#b45309",
                 "paddingAll": "16px",
                 "contents": [
                     {
                         "type": "text",
-                        "text": "⚠️ " + str(missing_days) + "日間記録がありません",
+                        "text": "記録を確認してください",
                         "weight": "bold",
                         "color": "#ffffff",
                         "size": "md",
@@ -134,7 +136,9 @@ def build_warning_message(missing_days):
                 "contents": [
                     {
                         "type": "text",
-                        "text": str(missing_days) + "日間記録がありません。体調はどうですか？",
+                        "text": "直近"
+                        + str(missing_days)
+                        + "日間、排便「あり」の記録がありません。アプリで記録内容を確認してください。",
                         "wrap": True,
                         "size": "sm",
                         "color": "#374151",
@@ -145,7 +149,7 @@ def build_warning_message(missing_days):
                 "type": "box",
                 "layout": "vertical",
                 "paddingAll": "12px",
-                "contents": [build_app_button("アプリを開く", "#ef4444")],
+                "contents": [build_app_button("記録を確認", "#b45309")],
             },
         },
     }
@@ -173,12 +177,12 @@ def lambda_handler(event, context):
 
     # 3. 判定ロジック
     if yesterday_log is not None:
-        # 昨日の記録あり → 通知不要
+        # 昨日に排便「あり」の記録あり → 通知不要
         print("Record found for yesterday - no notification needed")
         return {"statusCode": 200, "body": "No notification needed"}
 
     if day_before_log is None:
-        # 昨日も一昨日も記録なし → 2日以上の警告
+        # 昨日も一昨日も排便「あり」の記録なし → 複数日分の確認通知
         # さらに遡って連続日数を計算
         missing_days = 2
         while True:
@@ -190,9 +194,9 @@ def lambda_handler(event, context):
             else:
                 break
 
-        print(f"{missing_days} days without records - sending warning")
-        send_line_message([build_warning_message(missing_days)])
-        return {"statusCode": 200, "body": f"Sent: {missing_days}-day warning"}
+        print(f"{missing_days} days without a bowel-present record - sending reminder")
+        send_line_message([build_multi_day_reminder_message(missing_days)])
+        return {"statusCode": 200, "body": "Sent: multi-day record reminder"}
 
     # 昨日だけ記録なし → 通常の催促
     print("No record for yesterday only - sending reminder")
