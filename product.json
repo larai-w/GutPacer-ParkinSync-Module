@@ -27,7 +27,7 @@
 	"lastVerified": "2026-08-01",
 	"site": {
 		"status": "in-development",
-		"order": 6,
+		"order": 5,
 		"icon": "📊",
 		"themeColor": "#e5f3e2",
 		"techStack": [
