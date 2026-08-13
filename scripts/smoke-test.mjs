@@ -24,6 +24,7 @@ const notifierModule = await import("../backend/notifier/index.mjs");
 const { createNotifierHandler } = await import("../backend/notifier/index-mvp.mjs");
 const { verifyLineIdToken } = await import("../backend/line-auth.mjs");
 const { exportCareEvents } = await import("../backend/care-event-export.mjs");
+const { exitCode: preflightExitCode } = await import("./beta-preflight.mjs");
 
 function createFakeDb(responses = {}) {
     const calls = [];
@@ -356,6 +357,11 @@ await test("Display prototype: 現行UIを含む4方向を静的データだけ�
     assert.match(prototype, /やわらか標準/);
     assert.match(prototype, /親しみ表示/);
     assert.doesNotMatch(prototype, /config\.js|fetch\s*\(/);
+});
+
+await test("Beta preflight: BLOCKEDが1件でもあれば失敗終了する", async () => {
+    assert.equal(preflightExitCode([{ status: "PASS" }]), 0);
+    assert.equal(preflightExitCode([{ status: "PASS" }, { status: "BLOCKED" }]), 1);
 });
 
 let failed = 0;

@@ -19,6 +19,27 @@ general availability.
 - Privacy policy, terms, contact, and the 30-day deletion-request policy are linked from the app.
 - `npm test` and the public-repository guard pass.
 
+Run the read-only automated preflight before reviewing the owner gates below:
+
+```bash
+# Code tests and public-repository boundary only
+npm run beta:preflight
+
+# Also check public URLs and dependency vulnerabilities
+npm run beta:preflight -- --online
+
+# Also inspect AWS Lambda, DynamoDB PITR, EventBridge, and CloudWatch configuration
+npm run beta:preflight -- --aws
+```
+
+The AWS check reads configuration only. It confirms that the LINE token environment key exists but
+never reads or prints the value. A successful automated result does not replace the real-phone,
+notification-destination, migration, or owner-approval gates.
+
+The `Closed-beta preflight` GitHub Actions workflow runs the online checks on pull requests. Its AWS
+job runs only when the workflow is started manually; it is also read-only and does not deploy or
+enable resources.
+
 ## Owner approvals and external gates
 
 The following are intentionally not automatic:
