@@ -21,7 +21,9 @@ async function test(name, fn) {
 const { handler: apiHandler } = await import("../backend/index.mjs");
 const { handler: mvpApiHandler, createHandler } = await import("../backend/index-mvp.mjs");
 const notifierModule = await import("../backend/notifier/index.mjs");
+const { createNotifierHandler } = await import("../backend/notifier/index-mvp.mjs");
 const { verifyLineIdToken } = await import("../backend/line-auth.mjs");
+const { exportCareEvents } = await import("../backend/care-event-export.mjs");
 
 function createFakeDb(responses = {}) {
     const calls = [];
@@ -78,6 +80,69 @@ await test("MVP API: LINEトークンなしのGETは 401", async () => {
     assert.equal(res.statusCode, 401);
 });
 
+await test("MVP API: 未招待のLINEユーザーはプロフィール作成前に403", async () => {
+    const db = createFakeDb({ GetCommand: () => ({}) });
+    const handler = authedMvpHandler("U-not-invited", db);
+    const res = await handler({ requestContext: { http: { method: "GET" } }, headers: {} });
+    assert.equal(res.statusCode, 403);
+    assert.equal(db.calls.some((call) => call.name === "PutCommand"), false);
+});
+
+await test("MVP API: 明示的に招待されたLINEユーザーだけ初回プロフィールを作成", async () => {
+    const db = createFakeDb({
+        GetCommand: () => ({}),
+        PutCommand: () => ({}),
+        QueryCommand: () => ({ Items: [] })
+    });
+    const handler = createHandler({
+        client: db,
+        now: () => "2026-08-13T00:00:00.000Z",
+        authenticate: async () => ({ userId: "U-invited" }),
+        invitedUserIds: "U-invited"
+    });
+    const res = await handler({ requestContext: { http: { method: "GET" } }, headers: {} });
+    assert.equal(res.statusCode, 200);
+    const profilePut = db.calls.find((call) =>
+        call.name === "PutCommand" && call.input.TableName === "gutpacer-users"
+    );
+    assert.equal(profilePut.input.Item.userId, "U-invited");
+});
+
+await test("MVP API: 正しい初回招待コードをハッシュ照合してプロフィールを作成", async () => {
+    const db = createFakeDb({
+        GetCommand: () => ({}),
+        PutCommand: () => ({}),
+        QueryCommand: () => ({ Items: [] })
+    });
+    const handler = createHandler({
+        client: db,
+        now: () => "2026-08-13T00:00:00.000Z",
+        authenticate: async () => ({ userId: "U-code-invited" }),
+        inviteCodeHash: "749c5b21dac895cc65b662352bccb1ba5aadbf658d7ad0c315539066f66c9b54"
+    });
+    const res = await handler({
+        requestContext: { http: { method: "GET" } },
+        headers: { "X-Invite-Code": "synthetic-invite" }
+    });
+    assert.equal(res.statusCode, 200);
+    assert.ok(db.calls.some((call) => call.name === "PutCommand"));
+});
+
+await test("MVP API: 誤った招待コードは403でプロフィールを作らない", async () => {
+    const db = createFakeDb({ GetCommand: () => ({}) });
+    const handler = createHandler({
+        client: db,
+        authenticate: async () => ({ userId: "U-wrong-code" }),
+        inviteCodeHash: "749c5b21dac895cc65b662352bccb1ba5aadbf658d7ad0c315539066f66c9b54"
+    });
+    const res = await handler({
+        requestContext: { http: { method: "GET" } },
+        headers: { "X-Invite-Code": "wrong" }
+    });
+    assert.equal(res.statusCode, 403);
+    assert.equal(db.calls.some((call) => call.name === "PutCommand"), false);
+});
+
 await test("MVP API: GET は検証済みuserIdだけでQueryする", async () => {
     const db = createFakeDb({
         GetCommand: () => ({ Item: { userId: "U-verified", location: "home" } }),
@@ -129,6 +194,49 @@ await test("MVP API: DELETE は検証済みuserIdとfullDateをキーにする",
     assert.deepEqual(del.input.Key, { userId: "U-verified", fullDate: "2026-07-16" });
 });
 
+await test("MVP API: care-event/v1 export は認証済み世帯のQuery結果だけを返す", async () => {
+    const db = createFakeDb({
+        GetCommand: () => ({ Item: { userId: "U-verified", location: "home" } }),
+        QueryCommand: () => ({
+            Items: [{
+                userId: "U-verified",
+                fullDate: "2026-08-12",
+                condition: 3,
+                bowel: { amount: "中", type: "普通" },
+                meds: { morning: true },
+                notes: "synthetic note"
+            }]
+        })
+    });
+    const handler = authedMvpHandler("U-verified", db);
+    const res = await handler({
+        requestContext: { http: { method: "GET" } },
+        headers: {},
+        queryStringParameters: { format: "care-event-v1" }
+    });
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.equal(body.contract, "care-event/v1");
+    assert.ok(body.events.length >= 3);
+    assert.ok(body.events.every((event) => event.schemaVersion === "care-event/v1"));
+    assert.doesNotMatch(res.body, /U-verified|X-Line-Id-Token|token/i);
+});
+
+await test("care-event/v1 export は日単位・欠測・メモの意味を保持する", async () => {
+    const body = exportCareEvents([{
+        fullDate: "2026-08-12",
+        condition: 0,
+        bowel: null,
+        meds: {},
+        notes: "synthetic note"
+    }], "U-synthetic", "2026-08-13T00:00:00.000Z");
+    const bowel = body.events.find((event) => event.eventType === "bowel_movement");
+    const condition = body.events.find((event) => event.eventType === "daily_condition_logged");
+    assert.equal(bowel.missingness, "confirmed_none");
+    assert.equal(bowel.payload.timePrecision, "day");
+    assert.equal(condition.payload.note, "synthetic note");
+});
+
 await test("API: 正しい PIN でも fullDate 欠落の POST は 400", async () => {
     const res = await apiHandler({
         requestContext: { http: { method: "POST" } },
@@ -140,6 +248,54 @@ await test("API: 正しい PIN でも fullDate 欠落の POST は 400", async ()
 
 await test("Notifier: モジュールがロードでき handler が関数である", async () => {
     assert.equal(typeof notifierModule.handler, "function");
+});
+
+await test("MVP Notifier: ユーザーごとのキーで記録を確認し個別送信する", async () => {
+    const db = createFakeDb({
+        ScanCommand: () => ({
+            Items: [
+                { userId: "U-one", location: "home", notify: { remindAfterDays: 1, warnAfterDays: 2 } },
+                { userId: "U-two", location: "facility", notify: { remindAfterDays: 1, warnAfterDays: 2 } }
+            ]
+        }),
+        GetCommand: () => ({})
+    });
+    const sent = [];
+    const handler = createNotifierHandler({
+        client: db,
+        now: () => new Date("2026-08-13T00:00:00Z"),
+        sendLineMessage: async (userId) => sent.push(userId)
+    });
+    const res = await handler();
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(sent, ["U-one"]);
+    const gets = db.calls.filter((call) => call.name === "GetCommand");
+    assert.ok(gets.length > 0);
+    assert.ok(gets.every((call) => call.input.Key.userId === "U-one"));
+});
+
+await test("MVP Notifier: 1ユーザーの送信失敗後も他ユーザーを処理して失敗を通知する", async () => {
+    const db = createFakeDb({
+        ScanCommand: () => ({
+            Items: [
+                { userId: "U-fail", location: "home" },
+                { userId: "U-ok", location: "home" }
+            ]
+        }),
+        GetCommand: () => ({})
+    });
+    const attempted = [];
+    const handler = createNotifierHandler({
+        client: db,
+        now: () => new Date("2026-08-13T00:00:00Z"),
+        logger: { error() {} },
+        sendLineMessage: async (userId) => {
+            attempted.push(userId);
+            if (userId === "U-fail") throw new Error("test failure");
+        }
+    });
+    await assert.rejects(() => handler(), /1 user failure/);
+    assert.deepEqual(attempted, ["U-fail", "U-ok"]);
 });
 
 await test("LINE auth: 検証済みsubをuserIdとして返す", async () => {

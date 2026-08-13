@@ -8,8 +8,10 @@ import {
     PutCommand,
     DeleteCommand
 } from "@aws-sdk/lib-dynamodb";
+import { createHash, timingSafeEqual } from "node:crypto";
 import { getLineIdToken, verifyLineIdToken } from "./line-auth.mjs";
 import { createDefaultProfile } from "./profile-defaults.mjs";
+import { exportCareEvents } from "./care-event-export.mjs";
 
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 const LOGS_TABLE = process.env.LOGS_TABLE || "gutpacer-logs-v2";
@@ -19,15 +21,34 @@ const headers = {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET,POST,DELETE,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type,X-Line-Id-Token"
+    "Access-Control-Allow-Headers": "Content-Type,X-Line-Id-Token,X-Invite-Code"
 };
 
 function response(statusCode, body) {
     return { statusCode, headers, body: JSON.stringify(body) };
 }
 
+class InviteRequiredError extends Error {
+    constructor() {
+        super("Invited account required");
+        this.name = "InviteRequiredError";
+    }
+}
+
 async function authenticate(event) {
     return verifyLineIdToken(getLineIdToken(event));
+}
+
+function getHeader(event, name) {
+    const wanted = name.toLowerCase();
+    return Object.entries(event?.headers || {}).find(([key]) => key.toLowerCase() === wanted)?.[1] || "";
+}
+
+function inviteCodeMatches(code, expectedHash) {
+    if (!code || !expectedHash || !/^[a-f0-9]{64}$/i.test(expectedHash)) return false;
+    const actual = createHash("sha256").update(code).digest();
+    const expected = Buffer.from(expectedHash, "hex");
+    return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
 
 async function getOrCreateProfile(userId, dependencies = {}) {
@@ -38,6 +59,14 @@ async function getOrCreateProfile(userId, dependencies = {}) {
         Key: { userId }
     }));
     if (result.Item) return result.Item;
+
+    const invitedUserIds = new Set(String(
+        dependencies.invitedUserIds ?? process.env.INVITED_USER_IDS ?? ""
+    ).split(",").map((value) => value.trim()).filter(Boolean));
+    const inviteHash = dependencies.inviteCodeHash ?? process.env.INVITE_CODE_HASH ?? "";
+    if (!invitedUserIds.has(userId) && !inviteCodeMatches(dependencies.inviteCode, inviteHash)) {
+        throw new InviteRequiredError();
+    }
 
     const profile = createDefaultProfile(userId, now());
     await db.send(new PutCommand({
@@ -64,7 +93,13 @@ export function createHandler(dependencies = {}) {
         try {
             const identity = await auth(event);
             const userId = identity.userId;
-            const profile = await getOrCreateProfile(userId, { client: db, now });
+            const profile = await getOrCreateProfile(userId, {
+                client: db,
+                now,
+                invitedUserIds: dependencies.invitedUserIds,
+                inviteCodeHash: dependencies.inviteCodeHash,
+                inviteCode: getHeader(event, "X-Invite-Code")
+            });
 
             if (method === "GET") {
                 const result = await db.send(new QueryCommand({
@@ -76,6 +111,9 @@ export function createHandler(dependencies = {}) {
                 const logs = (result.Items || []).sort((a, b) =>
                     new Date(b.fullDate) - new Date(a.fullDate)
                 );
+                if (event.queryStringParameters?.format === "care-event-v1") {
+                    return response(200, exportCareEvents(logs, userId, now()));
+                }
                 return response(200, {
                     logs,
                     location: profile.location || "home",
@@ -123,6 +161,9 @@ export function createHandler(dependencies = {}) {
         } catch (error) {
             if (error.name === "LineAuthError") {
                 return response(401, { error: "Unauthorized" });
+            }
+            if (error.name === "InviteRequiredError") {
+                return response(403, { error: "Invite required" });
             }
             console.error(error);
             return response(500, { error: "Internal server error" });

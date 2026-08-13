@@ -5,8 +5,9 @@ import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import {
     DynamoDBDocumentClient,
     ScanCommand,
+    QueryCommand,
     GetCommand,
-    BatchWriteCommand
+    PutCommand
 } from "@aws-sdk/lib-dynamodb";
 import { createDefaultProfile } from "../backend/profile-defaults.mjs";
 
@@ -40,20 +41,35 @@ async function scanAll(tableName) {
 }
 
 const oldLogs = await scanAll(OLD_LOGS_TABLE);
+const existingLogsResult = await client.send(new QueryCommand({
+    TableName: NEW_LOGS_TABLE,
+    KeyConditionExpression: "#userId = :userId",
+    ExpressionAttributeNames: { "#userId": "userId" },
+    ExpressionAttributeValues: { ":userId": userId }
+}));
+const existingLogs = existingLogsResult.Items || [];
+const existingDates = new Set(existingLogs.map((log) => log.fullDate));
+const missingLogs = oldLogs.filter((log) => !existingDates.has(log.fullDate));
 const setting = await client.send(new GetCommand({
     TableName: OLD_SETTINGS_TABLE,
     Key: { settingKey: "location" }
 }));
 const location = setting.Item?.value || "home";
 
-const migratedLogs = oldLogs.map((log) => ({ ...log, userId }));
+const existingProfile = await client.send(new GetCommand({
+    TableName: NEW_USERS_TABLE,
+    Key: { userId }
+}));
+const migratedLogs = missingLogs.map((log) => ({ ...log, userId }));
 const profile = { ...createDefaultProfile(userId), location };
 
 console.log(JSON.stringify({
     mode: execute ? "execute" : "dry-run",
-    userId,
+    migrationTargetConfigured: true,
     sourceLogCount: oldLogs.length,
-    destinationLogCount: migratedLogs.length,
+    existingDestinationLogCount: existingLogs.length,
+    missingDestinationLogCount: migratedLogs.length,
+    existingProfilePreserved: Boolean(existingProfile.Item),
     location,
     tables: { logs: NEW_LOGS_TABLE, users: NEW_USERS_TABLE }
 }, null, 2));
@@ -63,19 +79,32 @@ if (!execute) {
     process.exit(0);
 }
 
-await client.send(new BatchWriteCommand({
-    RequestItems: {
-        [NEW_USERS_TABLE]: [{ PutRequest: { Item: profile } }]
-    }
-}));
-
-for (let i = 0; i < migratedLogs.length; i += 25) {
-    const batch = migratedLogs.slice(i, i + 25).map((log) => ({
-        PutRequest: { Item: log }
-    }));
-    await client.send(new BatchWriteCommand({
-        RequestItems: { [NEW_LOGS_TABLE]: batch }
-    }));
+if (!existingProfile.Item) {
+    await client.send(new PutCommand({
+        TableName: NEW_USERS_TABLE,
+        Item: profile,
+        ConditionExpression: "attribute_not_exists(userId)"
+    })).catch((error) => {
+        if (error.name !== "ConditionalCheckFailedException") throw error;
+    });
 }
 
-console.log("Migration completed. Keep legacy tables until readback verification is complete.");
+let writtenLogCount = 0;
+for (const log of migratedLogs) {
+    await client.send(new PutCommand({
+        TableName: NEW_LOGS_TABLE,
+        Item: log,
+        ConditionExpression: "attribute_not_exists(userId) AND attribute_not_exists(fullDate)"
+    })).then(() => {
+        writtenLogCount++;
+    }).catch((error) => {
+        if (error.name !== "ConditionalCheckFailedException") throw error;
+    });
+}
+
+console.log(JSON.stringify({
+    migrationCompleted: true,
+    writtenLogCount,
+    skippedExistingLogCount: oldLogs.length - writtenLogCount,
+    legacyTablesRetained: true
+}, null, 2));

@@ -238,6 +238,7 @@
         let selectedConditionValue = 0;
         let currentLogs = [];
         let lineIdToken = '';
+        let inviteCode = '';
         const LIFF_ID = window.GUTPACER_LIFF_ID || '';
 
         // ===== 事業所閲覧モード切替 =====
@@ -290,7 +291,8 @@
             const auth = lineIdToken
                 ? { 'X-Line-Id-Token': lineIdToken }
                 : { 'X-Pin': getPin() };
-            return { ...extra, ...auth };
+            const invite = inviteCode ? { 'X-Invite-Code': inviteCode } : {};
+            return { ...extra, ...auth, ...invite };
         }
 
         async function initializeLiff() {
@@ -333,8 +335,30 @@
         }
 
         function handleUnauthorized() {
+            if (LIFF_ID) {
+                document.getElementById('logHistoryList').innerHTML = '<p class="text-center py-4 text-rose-500 font-bold">LINEログインを確認できませんでした。もう一度アプリを開いてください。</p>';
+                return;
+            }
             localStorage.removeItem('gutpacer_pin');
             showPinScreen();
+        }
+
+        async function handleForbidden() {
+            const code = window.prompt('初回利用の招待コードを入力してください。');
+            if (!code) {
+                document.getElementById('logHistoryList').innerHTML = '<p class="text-center py-4 text-amber-700 font-bold">このLINEアカウントはまだ招待されていません。案内を受けた運営者へお問い合わせください。</p>';
+                return;
+            }
+            inviteCode = code.trim();
+            await fetchDataFromServer(false);
+            inviteCode = '';
+        }
+
+        function logoutFromLine() {
+            if (!LIFF_ID || typeof liff === 'undefined') return;
+            if (liff.isLoggedIn()) liff.logout();
+            lineIdToken = '';
+            window.location.reload();
         }
 
         window.onload = async function() {
@@ -350,7 +374,10 @@
             if (LIFF_ID) {
                 try {
                     const loggedIn = await initializeLiff();
-                    if (loggedIn) await fetchDataFromServer();
+                    if (loggedIn) {
+                        document.getElementById('lineLogoutButton').classList.remove('hidden');
+                        await fetchDataFromServer();
+                    }
                 } catch (error) {
                     console.error('LIFF initialization failed', error);
                     document.getElementById('logHistoryList').innerHTML = '<p class="text-center py-4 text-rose-500 font-bold">LINEログインを初期化できませんでした</p>';
@@ -459,10 +486,15 @@
         }
 
         // ログと場所設定を一括取得する
-        async function fetchDataFromServer() {
+        async function fetchDataFromServer(allowInvitePrompt = true) {
             try {
                 const response = await fetch(API_URL, { headers: getAuthHeaders() });
                 if (response.status === 401) { handleUnauthorized(); return; }
+                if (response.status === 403) {
+                    if (allowInvitePrompt) await handleForbidden();
+                    else document.getElementById('logHistoryList').innerHTML = '<p class="text-center py-4 text-rose-500 font-bold">招待コードを確認できませんでした。</p>';
+                    return;
+                }
                 if (!response.ok) throw new Error('サーバーエラー');
                 const data = await response.json();
                 displayLogs(data.logs);
@@ -793,6 +825,7 @@
             &nbsp;/&nbsp;
             <a href="./terms.html" class="underline hover:text-slate-600">利用規約</a>
         </p>
+        <button id="lineLogoutButton" type="button" onclick="logoutFromLine()" class="hidden mt-3 text-xs text-slate-500 underline">LINEからログアウト</button>
     </footer>
 
 </body>
