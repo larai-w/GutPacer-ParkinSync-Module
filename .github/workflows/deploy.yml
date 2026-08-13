@@ -35,7 +35,8 @@ jobs:
           aws --version
           aws s3 sync "frontend/" "s3://veai-careready-frontend/gutpacer/" \
             --delete \
-            --exclude "config.js"
+            --exclude "config.js" \
+            --exclude "dev/*"
 
       - name: Invalidate CloudFront cache
         run: |
