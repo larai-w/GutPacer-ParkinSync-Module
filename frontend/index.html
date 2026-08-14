@@ -192,6 +192,24 @@
             </p>
         </section>
 
+        <!-- 任意の利用統計（初期状態は送信しない） -->
+        <section class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 js-input-only">
+            <div class="flex items-center justify-between">
+                <div>
+                    <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">任意の利用統計</div>
+                    <div id="metricsConsentLabel" class="font-bold text-sm text-slate-500">オフ（送信しない）</div>
+                </div>
+                <button id="metricsConsentToggleBtn" type="button" onclick="onMetricsConsentToggle()"
+                    class="relative w-16 h-8 rounded-full transition-colors duration-300 focus:outline-none bg-slate-300"
+                    role="switch" aria-checked="false" aria-label="利用統計の送信を許可する">
+                    <span id="metricsConsentDot" class="absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow-sm transition-all duration-300"></span>
+                </button>
+            </div>
+            <p class="text-xs text-slate-400 mt-2 leading-relaxed">
+                許可すると、保存にかかった時間だけを送信します。記録内容や端末を追跡するIDは送信しません。
+            </p>
+        </section>
+
         <section class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-4">
             <div class="flex items-center justify-between">
                 <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
@@ -240,6 +258,103 @@
         let lineIdToken = '';
         let inviteCode = '';
         const LIFF_ID = window.GUTPACER_LIFF_ID || '';
+
+        // 任意の記録時間計測。明示同意がない限り開始も送信もしない。
+        const recordTimeTracker = (() => {
+            const CONSENT_KEY = 'metrics_consent';
+            const PRODUCT = 'gutpacer';
+            const CHANNEL = 'web';
+            let startedAt = null;
+            function hasConsent() {
+                return localStorage.getItem(CONSENT_KEY) === 'granted';
+            }
+
+            function start() {
+                if (!hasConsent()) return;
+                startedAt = Date.now();
+            }
+
+            async function stop() {
+                if (!hasConsent() || startedAt === null) {
+                    startedAt = null;
+                    return;
+                }
+                const durationMs = Date.now() - startedAt;
+                startedAt = null;
+                if (!Number.isInteger(durationMs) || durationMs < 100 || durationMs > 3600000) return;
+                const payload = {
+                    action: 'recordTime',
+                    durationMs,
+                    product: PRODUCT,
+                    channel: CHANNEL
+                };
+                try {
+                    await fetch(API_URL, {
+                        method: 'POST',
+                        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+                        body: JSON.stringify(payload)
+                    });
+                } catch (e) {
+                    // 計測送信失敗はサイレント（UX阻害しない）
+                    console.warn('Metrics send failed (non-fatal):', e.message);
+                }
+            }
+
+            // 離脱時フォールバック: sendBeaconで送信（認証ヘッダー付与不可のためPINをクエリ付与しない方式）
+            function flushOnUnload() {
+                if (!hasConsent() || startedAt === null) return;
+                const durationMs = Date.now() - startedAt;
+                startedAt = null;
+                if (!Number.isInteger(durationMs) || durationMs < 100 || durationMs > 3600000) return;
+                const payload = {
+                    action: 'recordTime',
+                    durationMs,
+                    product: PRODUCT,
+                    channel: CHANNEL
+                };
+                try {
+                    // sendBeaconはヘッダー付与不可のため、PIN認証が必要な場合はfetchのkeepaliveで代替
+                    fetch(API_URL, {
+                        method: 'POST',
+                        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+                        body: JSON.stringify(payload),
+                        keepalive: true
+                    }).catch(() => {});
+                } catch (e) { /* silent */ }
+            }
+
+            return { start, stop, flushOnUnload, hasConsent };
+        })();
+
+        // 記録フォームへのフォーカスで計測開始
+        document.addEventListener('focusin', (e) => {
+            const main = document.querySelector('main');
+            if (main && main.contains(e.target) && e.target.closest('.js-input-only')) {
+                recordTimeTracker.start();
+            }
+        });
+
+        // 離脱時フォールバック
+        window.addEventListener('beforeunload', () => recordTimeTracker.flushOnUnload());
+
+        function applyMetricsConsentToggle() {
+            const btn = document.getElementById('metricsConsentToggleBtn');
+            const dot = document.getElementById('metricsConsentDot');
+            const label = document.getElementById('metricsConsentLabel');
+            if (!btn || !dot || !label) return;
+            const consented = recordTimeTracker.hasConsent();
+            btn.className = `relative w-16 h-8 rounded-full transition-colors duration-300 focus:outline-none ${consented ? 'bg-indigo-500' : 'bg-slate-300'}`;
+            btn.setAttribute('aria-checked', consented ? 'true' : 'false');
+            dot.className = `absolute top-1 w-6 h-6 bg-white rounded-full shadow-sm transition-all duration-300 ${consented ? 'left-9' : 'left-1'}`;
+            label.textContent = consented ? 'オン（送信を許可）' : 'オフ（送信しない）';
+            label.className = `font-bold text-sm ${consented ? 'text-indigo-700' : 'text-slate-500'}`;
+        }
+
+        function onMetricsConsentToggle() {
+            const consented = recordTimeTracker.hasConsent();
+            localStorage.setItem('metrics_consent', consented ? 'denied' : 'granted');
+            applyMetricsConsentToggle();
+        }
 
         // ===== 事業所閲覧モード切替 =====
         const CARE_VIEW_KEY = 'GUTPACER_VIEW';
@@ -364,6 +479,7 @@
         window.onload = async function() {
             // 事業所/家族モードを最初に確定する（CSSで出し分けるのでPIN/LIFF前に実行）
             initViewMode();
+            applyMetricsConsentToggle();
 
             const today = new Date();
             const yyyy = today.getFullYear();
@@ -550,6 +666,9 @@
 
                 if (response.status === 401) { handleUnauthorized(); return; }
                 if (!response.ok) throw new Error('保存に失敗しました');
+
+                // BEN-004: 保存成功時に記録時間を送信（非同期・失敗してもUX阻害しない）
+                recordTimeTracker.stop().catch(() => {});
 
                 alert('AWSサーバーに記録を保存しました！');
                 resetForm();

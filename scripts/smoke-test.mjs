@@ -18,7 +18,7 @@ async function test(name, fn) {
     }
 }
 
-const { handler: apiHandler } = await import("../backend/index.mjs");
+const { handler: apiHandler, validateRecordTimeMetric } = await import("../backend/index.mjs");
 const { handler: mvpApiHandler, createHandler } = await import("../backend/index-mvp.mjs");
 const notifierModule = await import("../backend/notifier/index.mjs");
 const { createNotifierHandler } = await import("../backend/notifier/index-mvp.mjs");
@@ -245,6 +245,26 @@ await test("API: 正しい PIN でも fullDate 欠落の POST は 400", async ()
         body: JSON.stringify({ notes: "test" })
     });
     assert.equal(res.statusCode, 400);
+});
+
+await test("Metrics API: サーバー有効化なしでは 503", async () => {
+    const res = await apiHandler({
+        requestContext: { http: { method: "POST" } },
+        headers: { "x-pin": "1234" },
+        body: JSON.stringify({ action: "recordTime", product: "gutpacer", channel: "web", durationMs: 1200 })
+    });
+    assert.equal(res.statusCode, 503);
+});
+
+await test("Metrics contract: 最小ペイロードだけを受理", async () => {
+    assert.deepEqual(
+        validateRecordTimeMetric({ action: "recordTime", product: "gutpacer", channel: "web", durationMs: 1200 }),
+        { metric: { product: "gutpacer", channel: "web", durationMs: 1200 } }
+    );
+    assert.equal(
+        validateRecordTimeMetric({ action: "recordTime", product: "gutpacer", channel: "web", durationMs: 1200, recordId: "x" }).error,
+        "Unexpected metric field"
+    );
 });
 
 await test("Notifier: モジュールがロードでき handler が関数である", async () => {
