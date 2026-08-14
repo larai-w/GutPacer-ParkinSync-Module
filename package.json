@@ -4,7 +4,7 @@
   "type": "module",
   "description": "GutPacer - condition-agnostic family bowel and medication record",
   "scripts": {
-    "test": "node scripts/smoke-test.mjs",
+    "test": "node scripts/smoke-test.mjs && node --test tests/*.test.mjs",
     "beta:preflight": "node scripts/beta-preflight.mjs",
     "setup:v2:tables": "node scripts/create-v2-tables.mjs",
     "migrate:v2": "node scripts/migrate-to-v2.mjs",

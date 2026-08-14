@@ -1,0 +1,23 @@
+[
+  {
+    "fullDate": "2026-08-01",
+    "recordedAt": "2026-08-01T20:10:00+09:00",
+    "condition": 4,
+    "hasStool": true,
+    "bowel": { "amount": "中 (M)", "type": "普通（バナナ状）" },
+    "enema": false,
+    "manualHelp": false,
+    "meds": { "morning": true, "noon": false, "evening": true },
+    "notes": "synthetic fixture note"
+  },
+  {
+    "fullDate": "2026-08-02",
+    "condition": 0,
+    "hasStool": false,
+    "meds": { "morning": false, "noon": false, "evening": false },
+    "notes": ""
+  },
+  {
+    "fullDate": "2026-08-03"
+  }
+]
