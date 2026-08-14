@@ -31,6 +31,24 @@ export function validateRecordTimeMetric(body) {
     return { metric: { product: "gutpacer", channel: "web", durationMs } };
 }
 
+// ADR-0007 制約3: 保存期間は35日(DynamoDB TTL)。
+// 値を直書きせず定数にして、テストから検証できるようにする。
+export const METRICS_TTL_SECONDS = 35 * 24 * 60 * 60;
+
+// 書き込む item の組み立て。AWS を呼ばずに中身を検証できるよう切り出している。
+export function buildRecordTimeMetricItem(metric, now = new Date(), id = randomUUID()) {
+    return {
+        pk: `gutpacer#${id}`,
+        sk: now.toISOString(),
+        product: "gutpacer",
+        channel: "web",
+        eventType: "record_saved",
+        durationMs: metric.durationMs,
+        date: now.toISOString().slice(0, 10),
+        ttl: Math.floor(now.getTime() / 1000) + METRICS_TTL_SECONDS
+    };
+}
+
 async function saveRecordTimeMetric(body) {
     if (!METRICS_COLLECTION_ENABLED) {
         return { statusCode: 503, error: "Metrics collection is disabled" };
@@ -40,19 +58,9 @@ async function saveRecordTimeMetric(body) {
         return { statusCode: 400, error: validated.error };
     }
 
-    const now = new Date();
     await docClient.send(new PutCommand({
         TableName: METRICS_TABLE,
-        Item: {
-            pk: `gutpacer#${randomUUID()}`,
-            sk: now.toISOString(),
-            product: "gutpacer",
-            channel: "web",
-            eventType: "record_saved",
-            durationMs: validated.metric.durationMs,
-            date: now.toISOString().slice(0, 10),
-            ttl: Math.floor(now.getTime() / 1000) + 35 * 24 * 60 * 60
-        }
+        Item: buildRecordTimeMetricItem(validated.metric)
     }));
 
     return { statusCode: 200, message: "Metric saved" };

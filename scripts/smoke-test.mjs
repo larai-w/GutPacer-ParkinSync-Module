@@ -18,7 +18,12 @@ async function test(name, fn) {
     }
 }
 
-const { handler: apiHandler, validateRecordTimeMetric } = await import("../backend/index.mjs");
+const {
+    handler: apiHandler,
+    validateRecordTimeMetric,
+    buildRecordTimeMetricItem,
+    METRICS_TTL_SECONDS
+} = await import("../backend/index.mjs");
 const { handler: mvpApiHandler, createHandler } = await import("../backend/index-mvp.mjs");
 const notifierModule = await import("../backend/notifier/index.mjs");
 const { createNotifierHandler } = await import("../backend/notifier/index-mvp.mjs");
@@ -265,6 +270,47 @@ await test("Metrics contract: 最小ペイロードだけを受理", async () =>
         validateRecordTimeMetric({ action: "recordTime", product: "gutpacer", channel: "web", durationMs: 1200, recordId: "x" }).error,
         "Unexpected metric field"
     );
+});
+
+// RB-0015 の承認チェック#4 が要求する5項目のうち、認証・値域・TTL の3件。
+await test("Metrics API: PIN なしの計測POSTは 401（認証は計測ゲートより先）", async () => {
+    const res = await apiHandler({
+        requestContext: { http: { method: "POST" } },
+        headers: {},
+        body: JSON.stringify({ action: "recordTime", product: "gutpacer", channel: "web", durationMs: 1200 })
+    });
+    assert.equal(res.statusCode, 401);
+});
+
+await test("Metrics contract: durationMs の値域外・非整数は拒否", async () => {
+    const base = { action: "recordTime", product: "gutpacer", channel: "web" };
+    for (const durationMs of [99, 3600001, 1200.5, NaN, null, undefined, "abc", {}]) {
+        assert.equal(
+            validateRecordTimeMetric({ ...base, durationMs }).error,
+            "Invalid metric value",
+            `durationMs=${String(durationMs)} が拒否されていない`
+        );
+    }
+    // 境界値そのものは受理する
+    for (const durationMs of [100, 3600000]) {
+        assert.equal(validateRecordTimeMetric({ ...base, durationMs }).error, undefined);
+    }
+    // 数値化できる文字列は Number() で受理する（意図された挙動）。
+    // ただし保存されるのは必ず数値で、クライアントの型は持ち込まない。
+    const coerced = validateRecordTimeMetric({ ...base, durationMs: "1200" });
+    assert.equal(coerced.error, undefined);
+    assert.strictEqual(coerced.metric.durationMs, 1200);
+});
+
+await test("Metrics TTL: 保存 item は35日後に失効し、識別子を含まない（ADR-0007 制約3・6）", async () => {
+    assert.equal(METRICS_TTL_SECONDS, 35 * 24 * 60 * 60);
+    const now = new Date("2026-08-14T12:00:00.000Z");
+    const item = buildRecordTimeMetricItem({ durationMs: 1200 }, now, "fixed-id");
+    assert.equal(item.ttl, Math.floor(now.getTime() / 1000) + 35 * 24 * 60 * 60);
+    // ブラックリスト: 記録本文やクライアント由来の識別子を持ち込まない
+    for (const forbidden of ["recordId", "sessionId", "userId", "householdId", "memo", "bowel", "condition"]) {
+        assert.equal(forbidden in item, false, `${forbidden} が item に混入している`);
+    }
 });
 
 await test("Notifier: モジュールがロードでき handler が関数である", async () => {
