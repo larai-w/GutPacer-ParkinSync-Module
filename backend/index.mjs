@@ -6,7 +6,11 @@ const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
 const TABLE_NAME = "gutpacer-logs";
 const SETTINGS_TABLE = "gutpacer-settings";
-const METRICS_TABLE = "gutpacer-metrics";
+// 計測テーブルは環境変数からのみ取る。既定値を置かない。
+// 既定を "gutpacer-metrics" のような本番名にすると、環境変数が抜けたときに
+// test 環境から本番テーブルへ書いてしまう(BEN-004 承認ゲート F-03)。
+// 未設定なら収集しない = fail closed。収集自体が既定オフなので実害はない。
+const METRICS_TABLE = process.env.METRICS_TABLE;
 const METRICS_COLLECTION_ENABLED = process.env.METRICS_COLLECTION_ENABLED === "true";
 const METRICS_FIELDS = new Set(["action", "product", "channel", "durationMs"]);
 
@@ -50,7 +54,7 @@ export function buildRecordTimeMetricItem(metric, now = new Date(), id = randomU
 }
 
 async function saveRecordTimeMetric(body) {
-    if (!METRICS_COLLECTION_ENABLED) {
+    if (!METRICS_COLLECTION_ENABLED || !METRICS_TABLE) {
         return { statusCode: 503, error: "Metrics collection is disabled" };
     }
     const validated = validateRecordTimeMetric(body);

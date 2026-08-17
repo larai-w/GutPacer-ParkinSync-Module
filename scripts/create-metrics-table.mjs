@@ -23,11 +23,22 @@ if (
   process.exit(2);
 }
 
-const TABLE_NAME = process.env.METRICS_TABLE_NAME || 'gutpacer-metrics';
+// テーブル名は明示必須。既定値を置くと test 環境から本番名を作ってしまう
+// (BEN-004 承認ゲート F-03)。stage を必ず名前に含めること。
+//   例: gutpacer-metrics-test / gutpacer-metrics-production
+const TABLE_NAME = process.env.METRICS_TABLE_NAME;
+if (!TABLE_NAME) {
+  console.error('Blocked: METRICS_TABLE_NAME is required (e.g. gutpacer-metrics-test).');
+  console.error('         Do not rely on a default: it would point at production.');
+  process.exit(2);
+}
+
+// 既定は us-east-1。GutPacer の既存テーブル(gutpacer-logs / gutpacer-settings)が
+// us-east-1 にあり、別リージョンに作ると Lambda から書けない (F-05)。
 const REGION_INDEX = process.argv.indexOf('--region');
 const REGION = REGION_INDEX >= 0
   ? process.argv[REGION_INDEX + 1]
-  : (process.env.AWS_REGION || 'ap-northeast-1');
+  : (process.env.AWS_REGION || 'us-east-1');
 const client = new DynamoDBClient({ region: REGION });
 
 async function tableExists() {

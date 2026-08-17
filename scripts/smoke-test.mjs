@@ -282,6 +282,23 @@ await test("Metrics API: PIN なしの計測POSTは 401（認証は計測ゲー�
     assert.equal(res.statusCode, 401);
 });
 
+await test("Metrics: テーブル名は環境変数必須で、本番名へフォールバックしない（F-03）", async () => {
+    // 本番テーブル名を既定値に持たないこと。持つと test 環境から本番へ書ける。
+    const source = await readFile(new URL("../backend/index.mjs", import.meta.url), "utf8");
+    const line = source.split("\n").find((l) => l.includes("const METRICS_TABLE"));
+    assert.ok(line, "METRICS_TABLE の定義が見つからない");
+    assert.equal(
+        /["'`]/.test(line),
+        false,
+        `METRICS_TABLE に既定のテーブル名がハードコードされている: ${line.trim()}`
+    );
+    assert.ok(line.includes("process.env.METRICS_TABLE"), "METRICS_TABLE が環境変数由来でない");
+
+    // 環境変数が未設定なら、収集が有効でも 503 で止まる
+    assert.equal(source.includes("!METRICS_COLLECTION_ENABLED || !METRICS_TABLE"), true,
+        "テーブル未設定時に fail closed していない");
+});
+
 await test("Metrics contract: durationMs の値域外・非整数は拒否", async () => {
     const base = { action: "recordTime", product: "gutpacer", channel: "web" };
     for (const durationMs of [99, 3600001, 1200.5, NaN, null, undefined, "abc", {}]) {
