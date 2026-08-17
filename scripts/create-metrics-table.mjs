@@ -33,12 +33,31 @@ if (!TABLE_NAME) {
   process.exit(2);
 }
 
+// 「ハイフンがあれば stage 付き」では不十分。"gutpacer-metrics" 自体が
+// ハイフンを含むため素通りする。基底名 + stage の形を厳密に要求する。
+const METRICS_TABLE_BASE = 'gutpacer-metrics';
+if (!new RegExp(`^${METRICS_TABLE_BASE}-[a-z0-9][a-z0-9-]*$`).test(TABLE_NAME)) {
+  console.error(`Blocked: METRICS_TABLE_NAME must be "${METRICS_TABLE_BASE}-<stage>" (got "${TABLE_NAME}").`);
+  console.error('         A bare base name would be the production table.');
+  process.exit(2);
+}
+
 // 既定は us-east-1。GutPacer の既存テーブル(gutpacer-logs / gutpacer-settings)が
 // us-east-1 にあり、別リージョンに作ると Lambda から書けない (F-05)。
 const REGION_INDEX = process.argv.indexOf('--region');
 const REGION = REGION_INDEX >= 0
   ? process.argv[REGION_INDEX + 1]
   : (process.env.AWS_REGION || 'us-east-1');
+
+// ガードが正しく拒否することを確認するために、実際にテーブルを作る必要はない。
+// --dry-run は全チェックを通したうえで AWS 呼び出しの直前で止まる。
+// これが無いと「ガードの検証行為そのものが ADR-0007 制約5 違反になる」
+// (2026-08-17 に実際に発生。F-06)。
+if (process.argv.includes('--dry-run')) {
+  console.log(`Dry run OK: all guards passed. Would create ${TABLE_NAME} in ${REGION}.`);
+  console.log('No AWS call was made.');
+  process.exit(0);
+}
 const client = new DynamoDBClient({ region: REGION });
 
 async function tableExists() {
