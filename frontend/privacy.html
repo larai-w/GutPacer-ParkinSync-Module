@@ -43,6 +43,18 @@
             </div>
 
             <div class="space-y-2">
+                <h2 class="font-bold text-slate-900">任意の利用統計（既定はオフ）</h2>
+                <ul class="list-disc list-inside space-y-1 text-slate-700">
+                    <li>設定画面で明示的にオンにした場合に限り、記録の保存にかかった<strong>所要時間だけ</strong>を送信します。既定はオフで、オンにしない限り送信は行いません。</li>
+                    <li>送信する内容は、所要時間（ミリ秒）・プロダクト名・利用チャネル（web）だけです。</li>
+                    <li>排便・服薬・体調スコア・メモなどの<strong>記録の中身は送信しません</strong>。また、利用者や端末をたどれる識別子（記録ID・セッションID・ユーザーID等）も送信しません。そのため、どの送信が誰のものかを結び付けることはできません。</li>
+                    <li>目的は、記録にかかる手間を短くするための改善の確認です。</li>
+                    <li>送信された統計は35日後に自動的に削除されます。</li>
+                    <li>設定画面でいつでもオフに戻せます。オフにすると、それ以降は送信されません。</li>
+                </ul>
+            </div>
+
+            <div class="space-y-2">
                 <h2 class="font-bold text-slate-900">管理者によるデータの閲覧</h2>
                 <ul class="list-disc list-inside space-y-1 text-slate-700">
                     <li>運営者は、原則として利用者個々の記録内容を閲覧しません。</li>
