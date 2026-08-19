@@ -67,9 +67,9 @@
         </div>
 
         <section class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 text-center space-y-1.5">
-            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">最後の排便記録 (Latest record)</div>
+            <div class="text-[10px] font-bold text-slate-600 uppercase tracking-wider">最後の排便記録 (Latest record)</div>
             <div id="lastStoolDisplay" class="flex justify-center items-center">
-                <span class="text-slate-400 text-xs animate-pulse">データを読み込み中...</span>
+                <span class="text-slate-600 text-xs animate-pulse">データを読み込み中...</span>
             </div>
         </section>
 
@@ -100,7 +100,7 @@
             <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
                 <span class="text-xl section-emoji">💩</span> Bowel Tracker (排便記録)
             </h2>
-            <p class="text-xs text-slate-400">※便が出た場合は、以下の量と状態を選択してください。選択しなければ「便なし」として記録されます。</p>
+            <p class="text-xs text-slate-600">※便が出た場合は、以下の量と状態を選択してください。選択しなければ「便なし」として記録されます。</p>
             <hr class="border-slate-100">
 
             <div class="space-y-2">
@@ -178,15 +178,15 @@
         <section class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 js-input-only">
             <div class="flex items-center justify-between">
                 <div>
-                    <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">場所設定 (Location)</div>
-                    <div id="locationLabel" class="font-bold text-slate-400 text-sm">読み込み中...</div>
+                    <div class="text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">場所設定 (Location)</div>
+                    <div id="locationLabel" class="font-bold text-slate-600 text-sm">読み込み中...</div>
                 </div>
                 <button id="locationToggleBtn" type="button" onclick="onLocationToggle()"
                     class="relative w-16 h-8 rounded-full transition-colors duration-300 focus:outline-none bg-slate-300">
                     <span id="toggleDot" class="absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow-sm transition-all duration-300"></span>
                 </button>
             </div>
-            <p class="text-xs text-slate-400 mt-2 leading-relaxed">
+            <p class="text-xs text-slate-600 mt-2 leading-relaxed">
                 「施設」にすると、リマインド通知を止めます(施設で職員が見てくれている間の通知オフ)。<br>
                 記録はどちらの設定でもこれまで通り残せます。
             </p>
@@ -196,7 +196,7 @@
         <section class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 js-input-only">
             <div class="flex items-center justify-between">
                 <div>
-                    <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">任意の利用統計</div>
+                    <div class="text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">任意の利用統計</div>
                     <div id="metricsConsentLabel" class="font-bold text-sm text-slate-500">オフ（送信しない）</div>
                 </div>
                 <button id="metricsConsentToggleBtn" type="button" onclick="onMetricsConsentToggle()"
@@ -205,7 +205,7 @@
                     <span id="metricsConsentDot" class="absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow-sm transition-all duration-300"></span>
                 </button>
             </div>
-            <p class="text-xs text-slate-400 mt-2 leading-relaxed">
+            <p class="text-xs text-slate-600 mt-2 leading-relaxed">
                 許可すると、保存にかかった時間だけを送信します。記録内容や端末を追跡するIDは送信しません。
             </p>
         </section>
@@ -222,7 +222,7 @@
             <hr class="border-slate-100">
 
             <div id="logHistoryList" class="space-y-3 max-h-96 overflow-y-auto pr-1 text-sm text-slate-500">
-                <p class="text-center py-4 text-slate-400">履歴を読み込み中...</p>
+                <p class="text-center py-4 text-slate-600">履歴を読み込み中...</p>
             </div>
         </section>
 
@@ -745,7 +745,7 @@
             updateLastStoolDisplay(existingLogs);
 
             if (!existingLogs || existingLogs.length === 0) {
-                logHistoryList.innerHTML = '<p class="text-center py-4 text-slate-400">まだ記録がありません</p>';
+                logHistoryList.innerHTML = '<p class="text-center py-4 text-slate-600">まだ記録がありません</p>';
                 return;
             }
 
@@ -766,7 +766,7 @@
                 if (log.hasStool) {
                     html += `<span class="bg-amber-100 text-amber-800 font-bold px-2.5 py-1 rounded-sm">💩 便: あり [${escapeHtml(log.bowel.amount)}・${escapeHtml(log.bowel.type)}]</span>`;
                 } else {
-                    html += `<span class="bg-slate-200 text-slate-500 px-2.5 py-1 rounded-sm">💩 便: なし</span>`;
+                    html += `<span class="bg-slate-200 text-slate-700 px-2.5 py-1 rounded-sm">💩 便: なし</span>`;
                 }
 
                 if (log.enema) {
@@ -790,7 +790,7 @@
                 html += `</div>`;
 
                 if (log.notes) {
-                    html += `<div class="text-xs bg-white p-2 rounded-lg border border-slate-200/60 text-slate-600 whitespace-pre-wrap mt-1"><i class="fa-solid fa-pen text-slate-400 mr-1"></i>${escapeHtml(log.notes)}</div>`;
+                    html += `<div class="text-xs bg-white p-2 rounded-lg border border-slate-200/60 text-slate-600 whitespace-pre-wrap mt-1"><i class="fa-solid fa-pen text-slate-600 mr-1"></i>${escapeHtml(log.notes)}</div>`;
                 }
 
                 html += `
@@ -939,7 +939,7 @@
     </script>
 
     <footer class="max-w-md mx-auto px-4 pt-4 pb-8 text-center">
-        <p class="text-xs text-slate-400">
+        <p class="text-xs text-slate-600">
             <a href="./privacy.html" class="underline hover:text-slate-600">プライバシーポリシー</a>
             &nbsp;/&nbsp;
             <a href="./terms.html" class="underline hover:text-slate-600">利用規約</a>
