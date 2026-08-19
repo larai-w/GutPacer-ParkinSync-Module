@@ -54,6 +54,15 @@ Notifier deploy: GitHub Actions → Lambda zip on push to backend/notifier/**
 
 No framework build step — the frontend is a single static HTML file. The API Lambda and notifier Lambda are deployed independently.
 
+## Machine-readable care-event export
+
+GutPacer exposes a household-scoped snapshot at `/?format=care-event-v1`. The export
+uses the versioned `care-event/v1` contract described in
+[`docs/CARE_EVENT_EXPORT.md`](docs/CARE_EVENT_EXPORT.md), preserves the distinction
+between `confirmed_none` and `not_recorded`, and is covered by synthetic contract tests.
+It is an observation export for governed downstream review; it is not a diagnosis,
+treatment recommendation, or live clinical FHIR integration.
+
 ---
 
 ## 🏁 Product Management
