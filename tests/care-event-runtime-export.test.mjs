@@ -29,6 +29,9 @@ test("the runtime care-event export is schema-shaped and preserves missingness",
     const bowel = exported.events.filter((event) => event.eventType === "bowel_movement");
     assert.deepEqual(bowel.map((event) => event.missingness), ["observed", "confirmed_none", "confirmed_none"]);
     assert.ok(exported.events.some((event) => event.eventType === "movicol_taken"));
+    const medicationEvent = exported.events.find((event) => event.eventType === "movicol_taken");
+    assert.equal(medicationEvent.payload.medicationRef, "med-movicol");
+    assert.equal(Object.hasOwn(medicationEvent.payload, "medicationName"), false);
     assert.ok(exported.events.every((event) => !event.eventId.includes("synthetic-household-001")));
 });
 

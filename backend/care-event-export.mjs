@@ -74,7 +74,7 @@ export function exportCareEvents(logs, userId, exportedAt = new Date().toISOStri
 
         for (const [slot, taken] of Object.entries(log.meds || {})) {
             if (taken) addEvent(log, `movicol-${slot}`, "movicol_taken", {
-                medicationName: "モビコール",
+                medicationRef: "med-movicol",
                 slot
             });
         }
