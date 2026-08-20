@@ -28,3 +28,7 @@ the export are deterministic pseudonyms.
 
 PDF remains the human-readable report. This JSON contract is for approved data-portability and
 downstream workflows; it is not a clinical interoperability certification.
+
+The runtime export path is covered by `tests/care-event-runtime-export.test.mjs`, in addition to
+the standalone contract transformer tests. This prevents a schema-valid helper that is not wired
+to the API from being mistaken for a verified production path.
