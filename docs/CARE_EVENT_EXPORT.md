@@ -20,6 +20,8 @@ the export are deterministic pseudonyms.
 - A saved daily record with no bowel event exports `missingness: "confirmed_none"`. A date with no
   saved record is absent from the export and must not be interpreted as confirmed none.
 - Medication events are emitted only for slots explicitly marked as taken.
+- Medication events use an opaque `payload.medicationRef` (`med-movicol`) rather than a medication
+  name. This is a reference boundary, not a clinical terminology assertion.
 - Notes are carried by `daily_condition_logged`; no separate clinical interpretation is added.
 - Editing a daily record replaces its current DynamoDB value. The export is a current snapshot and
   does not claim a correction history.
