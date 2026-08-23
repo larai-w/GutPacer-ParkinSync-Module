@@ -1,0 +1,199 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://veai.local/schemas/gutpacer-care-event-v1.json",
+  "title": "GutPacer Care Event v1",
+  "description": "Versioned care-event export envelope for GutPacer daily bowel/medication logs. Design-only schema; no production implementation yet.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "event_id",
+    "event_type",
+    "occurred_at",
+    "recorded_at",
+    "source",
+    "consent",
+    "payload"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "gutpacer-care-event-v1",
+      "description": "Fixed schema version identifier for this export contract."
+    },
+    "event_id": {
+      "type": "string",
+      "pattern": "^gp-evt-[0-9]{8}-[0-9]{6}-[a-z0-9]{4,16}$",
+      "description": "Deterministic event ID: gp-evt-<YYYYMMDD>-<seq 6 digits>-<hash suffix>."
+    },
+    "event_type": {
+      "const": "care_log_recorded",
+      "description": "v1 defines only this event type."
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp representing the recorded date. Timezone assumed Asia/Tokyo (unresolved: exact time semantics)."
+    },
+    "recorded_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when the log was saved or exported (fallback if original save time unavailable)."
+    },
+    "source": {
+      "type": "object",
+      "required": ["product", "channel", "export_batch_id"],
+      "additionalProperties": false,
+      "properties": {
+        "product": {
+          "const": "gutpacer"
+        },
+        "channel": {
+          "const": "web"
+        },
+        "export_batch_id": {
+          "type": "string",
+          "pattern": "^gp-export-[0-9]{8}T[0-9]{4}Z(-[a-z0-9]+)?$",
+          "description": "Batch identifier for the export run."
+        }
+      }
+    },
+    "consent": {
+      "type": "object",
+      "required": ["status", "granted_at", "scope"],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "const": "granted",
+          "description": "Only granted records may be exported. Other statuses must be filtered out before schema validation."
+        },
+        "granted_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "scope": {
+          "const": "research_export_v1"
+        }
+      }
+    },
+    "payload": {
+      "type": "object",
+      "required": [
+        "log_date",
+        "condition_score",
+        "bowel",
+        "interventions",
+        "medication",
+        "notes_present",
+        "notes_redacted"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "log_date": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+          "description": "The calendar date being recorded (from fullDate)."
+        },
+        "condition_score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5,
+          "description": "Daily condition 1-5; 0 means unset. Do not impute."
+        },
+        "bowel": {
+          "type": "object",
+          "required": ["has_stool"],
+          "additionalProperties": false,
+          "properties": {
+            "has_stool": {
+              "type": "boolean"
+            },
+            "amount": {
+              "type": "string",
+              "enum": ["small", "medium", "large", "unknown"],
+              "description": "Normalized stool amount. Present only when has_stool is true."
+            },
+            "type_code": {
+              "type": "string",
+              "enum": [
+                "hard_pellet",
+                "soft_loose",
+                "watery_diarrhea",
+                "normal_banana",
+                "unknown"
+              ],
+              "description": "Normalized stool type code. Present only when has_stool is true."
+            },
+            "type_label_ja": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Original Japanese label for human review. Present only when has_stool is true."
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": { "has_stool": { "const": true } },
+                "required": ["has_stool"]
+              },
+              "then": {
+                "required": ["amount", "type_code", "type_label_ja"]
+              }
+            }
+          ]
+        },
+        "interventions": {
+          "type": "object",
+          "required": ["enema", "manual_evacuation"],
+          "additionalProperties": false,
+          "properties": {
+            "enema": {
+              "type": "boolean",
+              "description": "Enema was performed on this date."
+            },
+            "manual_evacuation": {
+              "type": "boolean",
+              "description": "Manual evacuation assistance was provided on this date."
+            }
+          }
+        },
+        "medication": {
+          "type": "object",
+          "required": ["movicol"],
+          "additionalProperties": false,
+          "properties": {
+            "movicol": {
+              "type": "object",
+              "required": ["morning", "noon", "evening"],
+              "additionalProperties": false,
+              "properties": {
+                "morning": { "type": "boolean" },
+                "noon": { "type": "boolean" },
+                "evening": { "type": "boolean" }
+              },
+              "description": "Movicol intake flags by time of day."
+            }
+          }
+        },
+        "notes_present": {
+          "type": "boolean",
+          "description": "Whether free-text notes existed at export time."
+        },
+        "notes_redacted": {
+          "type": "boolean",
+          "description": "v1: always true when notes_present is true, because note text is never exported."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "notes_present": { "const": true } },
+            "required": ["notes_present"]
+          },
+          "then": {
+            "properties": { "notes_redacted": { "const": true } }
+          }
+        }
+      ]
+    }
+  }
+}
