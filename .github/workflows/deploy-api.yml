@@ -6,7 +6,10 @@ on:
     branches:
       - main
     paths:
-      - 'backend/index.mjs'
+      # index.mjs が import しているモジュールも対象にする。
+      # 2026-08-24: consent.mjs を追加したとき、ここが index.mjs だけだったため
+      # consent.mjs だけを直しても deploy が走らない状態だった。
+      - 'backend/*.mjs'
       - '.github/workflows/deploy-api.yml'
 
 env:
@@ -43,9 +46,18 @@ jobs:
       # Handler is index.handler, so index.mjs must sit at the zip root.
       # -j strips the backend/ path. AWS SDK v3 is bundled in the nodejs runtime,
       # so no node_modules are packaged.
+      #
+      # ⚠️ index.mjs が import しているモジュールを必ず同梱する。
+      # 2026-08-24: consent.mjs を追加したとき index.mjs だけを zip していたため、
+      # デプロイすると Lambda が起動時の import で落ちる状態だった
+      # （Cannot find module './consent.mjs'）。**API 全体が止まる。**
+      # zip は成功し、CI も緑になるので、初回の呼び出しまで気づけない。
+      # tests/deploy-package.test.mjs が、import と同梱の食い違いを検知する。
       - name: Package Lambda code
         run: |
-          zip -j function.zip backend/index.mjs
+          zip -j function.zip backend/index.mjs backend/consent.mjs
+          echo "--- zip の中身 ---"
+          unzip -l function.zip
 
       # Lambda functions live in us-east-1. The AWS_REGION secret is a
       # different region, so target the function region explicitly here
