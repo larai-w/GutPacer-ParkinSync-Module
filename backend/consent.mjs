@@ -35,7 +35,7 @@ export const CONSENT_SETTING_PREFIX = 'consent#';
 export const PRIVACY_POLICY_VERSION = '2026-08-24';
 
 /** 同意画面で見せた文言の版。文言を変えたら上げる。 */
-export const CONSENT_TEXT_VERSION = '2026-08-24';
+export const CONSENT_TEXT_VERSION = '2026-08-24-2';
 
 export function makeConsentSettingKey(consentType, consentId) {
     return `${CONSENT_SETTING_PREFIX}${consentType}#${consentId}`;
