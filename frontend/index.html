@@ -192,18 +192,40 @@
             </p>
         </section>
 
-        <!-- 同意の撤回・全データ削除（COMP-01 C-05）-->
-        <section class="bg-white rounded-2xl p-4 shadow-sm border border-rose-200 js-input-only">
-            <div class="text-xs font-bold text-rose-700 uppercase tracking-wider mb-1">データの削除</div>
-            <p class="text-xs text-slate-600 mt-1 leading-relaxed">
-                これまでの記録をすべて消します。<strong>元に戻せません。</strong><br>
-                消したあとも、いつでも新しく記録を始められます。
-            </p>
-            <button id="deleteAllBtn" type="button" onclick="onDeleteAllData()"
-                class="mt-3 w-full py-2 rounded-xl border border-rose-300 text-rose-700 text-sm font-bold bg-white hover:bg-rose-50 focus:outline-none focus:ring-2 focus:ring-rose-300">
-                すべての記録を削除する
-            </button>
-            <p id="deleteAllStatus" class="text-xs mt-2 leading-relaxed hidden"></p>
+        <!-- 同意の撤回・全データ削除（COMP-01 C-05）
+             ⚠️ **偶然押せない形にする。** 2026-08-24 にオーナー指摘:
+             設定を上から見ていく途中に赤いボタンが置かれていて「いずれ押す」。
+             合言葉は「押したあと」の守りでしかないので、開く操作を1つ挟む。
+             既定は閉じたまま。探せば見つかるが、スクロール中に指は当たらない。 -->
+        <section class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 js-input-only">
+            <details id="deleteAllDetails" class="group">
+                <summary class="cursor-pointer list-none flex items-center justify-between text-xs font-bold text-slate-600 uppercase tracking-wider">
+                    <span>データの管理</span>
+                    <span class="text-slate-400 font-normal normal-case group-open:hidden">開く</span>
+                    <span class="text-slate-400 font-normal normal-case hidden group-open:inline">閉じる</span>
+                </summary>
+
+                <div class="mt-3 pt-3 border-t border-slate-100">
+                    <p class="text-xs text-slate-600 leading-relaxed">
+                        これまでの記録を<strong>すべて</strong>消します。<strong class="text-rose-700">元に戻せません。</strong><br>
+                        消したあとも、いつでも新しく記録を始められます。
+                    </p>
+
+                    <label for="deleteAllConfirm" class="block text-xs text-slate-600 mt-3 leading-relaxed">
+                        消す場合は、下の欄に <code class="bg-slate-100 px-1 rounded font-bold">DELETE-ALL</code> と入力してください。
+                    </label>
+                    <input type="text" id="deleteAllConfirm" autocomplete="off" spellcheck="false"
+                        oninput="onDeleteAllConfirmInput()"
+                        class="mt-1 w-full border-2 border-slate-200 rounded-xl py-2 px-3 text-sm focus:border-rose-400 focus:outline-none"
+                        placeholder="DELETE-ALL">
+
+                    <button id="deleteAllBtn" type="button" onclick="onDeleteAllData()" disabled
+                        class="mt-3 w-full py-2 rounded-xl border border-rose-300 text-rose-700 text-sm font-bold bg-white hover:bg-rose-50 focus:outline-none focus:ring-2 focus:ring-rose-300 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white">
+                        すべての記録を削除する
+                    </button>
+                    <p id="deleteAllStatus" class="text-xs mt-2 leading-relaxed hidden"></p>
+                </div>
+            </details>
         </section>
 
         <!-- 任意の利用統計（初期状態は送信しない） -->
@@ -662,21 +684,29 @@
         // サーバー側も同じ合言葉が無ければ 400 を返す（二重の歯止め）。
         const DELETE_ALL_CONFIRMATION = 'DELETE-ALL';
 
+        // 合言葉が一致するまでボタンを押せないようにする。
+        // prompt() は使わない。ブラウザによってはブロックされることがあり、
+        // その場合**削除がまったくできなくなる**（C-05 の撤回導線が成立しない）。
+        // 画面内の入力欄なら、どの環境でも動き、何を打つのかも見える。
+        function onDeleteAllConfirmInput() {
+            const input = document.getElementById('deleteAllConfirm');
+            const btn = document.getElementById('deleteAllBtn');
+            btn.disabled = input.value.trim() !== DELETE_ALL_CONFIRMATION;
+        }
+
         async function onDeleteAllData() {
             const btn = document.getElementById('deleteAllBtn');
+            const input = document.getElementById('deleteAllConfirm');
             const status = document.getElementById('deleteAllStatus');
             const show = (text, cls) => {
                 status.textContent = text;
                 status.className = `text-xs mt-2 leading-relaxed ${cls}`;
             };
 
-            const typed = prompt(
-                'すべての記録を削除します。元に戻せません。\n' +
-                `続けるには ${DELETE_ALL_CONFIRMATION} と入力してください。`
-            );
-            if (typed === null) return;
-            if (typed.trim() !== DELETE_ALL_CONFIRMATION) {
-                show('入力が一致しなかったので、何も削除していません。', 'text-slate-600');
+            // 画面側で無効化していても、ここでもう一度見る。
+            // disabled はDOMから外せるので、それだけを頼りにしない。
+            if (input.value.trim() !== DELETE_ALL_CONFIRMATION) {
+                show('入力が一致しないので、何も削除していません。', 'text-slate-600');
                 return;
             }
 
@@ -697,7 +727,9 @@
                 console.error('全データ削除に失敗しました', e);
                 show('削除できませんでした。記録は残っています。もう一度お試しください。', 'text-rose-700');
             } finally {
-                btn.disabled = false;
+                // 合言葉を残さない。残すと次に開いたとき1タップで消せてしまう。
+                input.value = '';
+                btn.disabled = true;
                 btn.textContent = 'すべての記録を削除する';
             }
         }
