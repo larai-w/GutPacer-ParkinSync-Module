@@ -244,6 +244,51 @@
 
     <div id="pdfReportContent" style="position: absolute; left: -9999px; top: 0; width: 780px; background: #ffffff; padding: 32px; font-family: 'Hiragino Sans', 'Yu Gothic', sans-serif; color: #1e293b;"></div>
 
+    <!-- 初回の同意（COMP-01 Phase 2）。文言は privacy.html から引き写す -->
+    <div id="consentOverlay" class="fixed inset-0 bg-slate-900/80 flex items-start justify-center z-50 overflow-y-auto py-8 hidden">
+        <div class="bg-white rounded-2xl p-6 shadow-xl max-w-lg w-full mx-4 space-y-4">
+            <h2 class="text-lg font-bold text-indigo-950">はじめる前に</h2>
+
+            <div class="space-y-4 text-sm leading-relaxed text-slate-700">
+                <section>
+                    <h3 class="font-bold text-slate-900">健康に関する情報を扱います</h3>
+                    <p>排便・服薬・体調の記録は、法律上とくに配慮が必要な個人情報です。そのため、あらかじめご本人の同意をいただいたうえでお預かりします。</p>
+                </section>
+                <section>
+                    <h3 class="font-bold text-slate-900">お預かりするもの</h3>
+                    <p>入力された排便・服薬（モビコール）・体調スコア・メモ・在宅／施設の別などの記録。案内済みPINによるアクセス情報。LINE通知を設定した場合の通知先の識別子。</p>
+                </section>
+                <section>
+                    <h3 class="font-bold text-slate-900">何に使うか</h3>
+                    <p>記録の保存・表示・PDF出力、およびLINEによる記録確認通知の提供のため。不具合対応・品質改善のため。</p>
+                </section>
+                <section>
+                    <h3 class="font-bold text-slate-900">外部への提供</h3>
+                    <p>ご本人の同意なく第三者へ提供しません。データは Amazon Web Services 上に保存します。LINE通知を利用する場合は、LINEのサービスを必要な範囲で利用します。</p>
+                </section>
+                <section>
+                    <h3 class="font-bold text-slate-900">いつでもやめられます</h3>
+                    <p>記録は1日ずつ削除できます。「データの削除」からこれまでの記録をすべて削除することもできます。同意の取り消しや退会のご相談は、お問い合わせ先まで。</p>
+                </section>
+                <section>
+                    <h3 class="font-bold text-slate-900">利用統計は既定でオフ</h3>
+                    <p>記録の保存にかかった所要時間だけを送る任意の統計は、設定画面で明示的にオンにしない限り送信しません。記録の中身は送りません。</p>
+                </section>
+            </div>
+
+            <p class="text-xs text-slate-500">
+                くわしくは <a href="privacy.html" class="text-indigo-600 underline">プライバシーポリシー</a> をご覧ください。
+            </p>
+
+            <p id="consentError" class="hidden text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2"></p>
+
+            <button id="consentAgreeBtn" type="button" onclick="onConsentAgree()"
+                class="w-full py-3 rounded-xl bg-indigo-600 text-white font-bold disabled:opacity-60">
+                同意して始める
+            </button>
+        </div>
+    </div>
+
     <div id="pinOverlay" class="fixed inset-0 bg-slate-900/80 flex items-center justify-center z-50 hidden">
         <div class="bg-white rounded-2xl p-8 shadow-xl max-w-sm w-full mx-4 space-y-4">
             <div class="text-center space-y-2">
@@ -458,6 +503,7 @@
                 displayLogs(data.logs);
                 applyLocationSetting(data.location ?? 'home');
                 localStorage.setItem('gutpacer_location', data.location ?? 'home');
+                await checkConsent();
             } catch (e) {
                 document.getElementById('pinError').classList.remove('hidden');
             }
@@ -545,6 +591,63 @@
                 });
             } catch (e) {
                 console.error('設定の保存に失敗しました', e);
+            }
+        }
+
+        // 初回の同意（COMP-01 Phase 2）。
+        //
+        // **同意状態を読めなかったときに記録を止めない。** 読めないときに同意画面を
+        // 出すと、押した先の書き込みも失敗して利用者が閉じ込められる
+        // （veai-private CLAUDE.md §2.6）。判定は backend/consent.mjs の
+        // decideAppGate と同じ規則にしてあり、そちらはテストで固定してある。
+        async function checkConsent() {
+            let state = null;
+            try {
+                const res = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+                    body: JSON.stringify({ action: 'getConsent' })
+                });
+                if (res.status === 401) return;            // 認証以前の話。ここでは触らない
+                if (res.ok) state = (await res.json()).state;
+                // res.ok でなければ state は null のまま = 確認できなかった
+            } catch (e) {
+                console.error('同意の状態を確認できませんでした', e);
+            }
+
+            if (state === null) return;                    // 通す（記録は止めない）
+            if (state.basic && state.basic.granted) return; // 同意済み
+            if (state.basic && state.basic.ownStatus === 'unavailable') return; // 通す
+
+            document.getElementById('consentOverlay').classList.remove('hidden');
+        }
+
+        async function onConsentAgree() {
+            const btn = document.getElementById('consentAgreeBtn');
+            const err = document.getElementById('consentError');
+            btn.disabled = true;
+            btn.textContent = '記録しています...';
+            err.classList.add('hidden');
+            try {
+                const res = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+                    body: JSON.stringify({ action: 'grantConsent', consentType: 'basic' })
+                });
+                if (!res.ok) {
+                    // **記録できていないのに「同意しました」と見せない。**
+                    const data = await res.json().catch(() => ({}));
+                    err.textContent = data.error || '記録できませんでした。時間をおいてお試しください';
+                    err.classList.remove('hidden');
+                    return;
+                }
+                document.getElementById('consentOverlay').classList.add('hidden');
+            } catch (e) {
+                err.textContent = '記録できませんでした。通信の状態をご確認ください';
+                err.classList.remove('hidden');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '同意して始める';
             }
         }
 

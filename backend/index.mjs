@@ -1,6 +1,18 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, PutCommand, ScanCommand, DeleteCommand, GetCommand, BatchWriteCommand } from "@aws-sdk/lib-dynamodb";
 import { randomUUID } from "node:crypto";
+import {
+    CONSENT_SETTING_PREFIX,
+    CONSENT_TEXT_VERSION,
+    PRIVACY_POLICY_VERSION,
+    buildGrantRecord,
+    buildRevokeRecord,
+    evaluateAll,
+    extractConsentRecords,
+    isConsentType,
+    latestRecord,
+    makeConsentSettingKey,
+} from "./consent.mjs";
 
 const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
@@ -87,6 +99,35 @@ export function buildDeleteAllBatches(items, chunkSize = 25) {
     return batches;
 }
 
+// ─── 同意（COMP-01 Phase 2）────────────────────────────────────────────────
+// 同意の主体。この運用は単一世帯・共有PINなので、世帯を1件として扱う。
+// **固定文字列に落とさない**（将来 LINE ログイン版で個人が分かれたときに
+// 別人の同意が混ざらないよう、環境変数で分けられる形にしておく）。
+const CONSENT_SUBJECT = process.env.CONSENT_SUBJECT || "household:gutpacer-default";
+
+async function listConsentRecords() {
+    // このテーブルは単一世帯用で数アイテムしかないので Scan で読む。
+    // 件数が増える設計に変わるなら、テーブル設計から見直すこと。
+    const result = await docClient.send(new ScanCommand({ TableName: SETTINGS_TABLE }));
+    return extractConsentRecords(result.Items);
+}
+
+async function putConsentRecord(record) {
+    await docClient.send(new PutCommand({
+        TableName: SETTINGS_TABLE,
+        Item: {
+            settingKey: makeConsentSettingKey(record.consentType, record.consentId),
+            record,
+            updatedAt: record.updatedAt
+        }
+    }));
+}
+
+async function getConsentState() {
+    const records = await listConsentRecords();
+    return evaluateAll(records, new Date());
+}
+
 async function deleteAllLogs() {
     const result = await docClient.send(new ScanCommand({ TableName: TABLE_NAME }));
     const items = result.Items || [];
@@ -149,6 +190,53 @@ export const handler = async (event) => {
             const body = JSON.parse(event.body);
 
             // Existing PIN auth and an explicit server flag are both required.
+            if (body.action === "getConsent") {
+                try {
+                    const state = await getConsentState();
+                    return { statusCode: 200, headers, body: JSON.stringify({
+                        state,
+                        versions: { ppVersion: PRIVACY_POLICY_VERSION, consentTextVersion: CONSENT_TEXT_VERSION }
+                    }) };
+                } catch (error) {
+                    // **読めなかったことを「同意していない」として返さない。**
+                    // 画面が同意画面を出し、押した先の書き込みも失敗して閉じ込める。
+                    console.log(`[CONSENT READ FAILED] subject=${CONSENT_SUBJECT} ${error.message}`);
+                    return { statusCode: 503, headers, body: JSON.stringify({
+                        error: "同意の状態を確認できませんでした", unavailable: true
+                    }) };
+                }
+            }
+
+            if (body.action === "grantConsent" || body.action === "revokeConsent") {
+                if (!isConsentType(body.consentType)) {
+                    return { statusCode: 400, headers, body: JSON.stringify({ error: "同意の種類が正しくありません" }) };
+                }
+                try {
+                    if (body.action === "grantConsent") {
+                        // 記録する版は**サーバ側の定数**を使う。クライアントの申告は使わない。
+                        // 古い画面がキャッシュされていても、記録は実際に見せた版になる。
+                        await putConsentRecord(buildGrantRecord({
+                            consentId: randomUUID(),
+                            userId: CONSENT_SUBJECT,
+                            consentType: body.consentType
+                        }, new Date()));
+                    } else {
+                        const records = await listConsentRecords();
+                        const previous = latestRecord(records.filter((r) => r.consentType === body.consentType));
+                        if (!previous || previous.status === "revoked") {
+                            // 「無いものを撤回した」を成功として返さない
+                            return { statusCode: 409, headers, body: JSON.stringify({ error: "撤回できる同意がありません" }) };
+                        }
+                        await putConsentRecord(buildRevokeRecord(previous, randomUUID(), new Date()));
+                    }
+                } catch (error) {
+                    // 書けなかったのに「同意しました」と見せない
+                    console.log(`[CONSENT WRITE FAILED] subject=${CONSENT_SUBJECT} action=${body.action} ${error.message}`);
+                    return { statusCode: 503, headers, body: JSON.stringify({ error: "記録できませんでした。時間をおいてお試しください" }) };
+                }
+                return { statusCode: 200, headers, body: JSON.stringify({ state: await getConsentState() }) };
+            }
+
             if (body.action === "deleteAllData") {
                 const validated = validateDeleteAllRequest(body);
                 if (validated.error) {
