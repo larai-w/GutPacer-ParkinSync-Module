@@ -9,6 +9,7 @@
 //   2. 研究へのデータ利用は、確認できなければ通さない
 
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
@@ -248,7 +249,23 @@ test("空でも落ちない", () => {
     assert.deepEqual(extractConsentRecords(undefined), []);
 });
 
-test("ポリシーの版は privacy.html の改定日と同じ日を指す", () => {
-    assert.match(PRIVACY_POLICY_VERSION, /^\d{4}-\d{2}-\d{2}$/);
-    assert.match(CONSENT_TEXT_VERSION, /^\d{4}-\d{2}-\d{2}$/);
+test("ポリシーの版が privacy.html の改定日と実際に一致している", () => {
+    // 名前だけそう言って中身を見ていなかった（2026-08-24 に気づいた）。
+    // ずれていると、同意記録の ppVersion が「何に同意したか」を指さなくなる。
+    assert.match(PRIVACY_POLICY_VERSION, /^\d{4}-\d{2}-\d{2}$/, "版の形が違う");
+    const html = readFileSync("frontend/privacy.html", "utf8");
+    const m = html.match(/改定日:\s*(\d{4}-\d{2}-\d{2})/);
+    assert.ok(m, "privacy.html に改定日が見つからない");
+    assert.equal(
+        PRIVACY_POLICY_VERSION,
+        m[1],
+        `版(${PRIVACY_POLICY_VERSION}) と privacy.html の改定日(${m[1]}) がずれている`,
+    );
+});
+
+test("文言の版は YYYY-MM-DD か YYYY-MM-DD-N（同日に2回直すことがある）", () => {
+    const m = CONSENT_TEXT_VERSION.match(/^(\d{4}-\d{2}-\d{2})(?:-(\d+))?$/);
+    assert.ok(m, `版の形が違う: ${CONSENT_TEXT_VERSION}`);
+    assert.ok(!Number.isNaN(new Date(m[1]).getTime()), `日付として読めない: ${m[1]}`);
+    if (m[2]) assert.ok(Number(m[2]) >= 2, "同日の連番は 2 から始める");
 });
