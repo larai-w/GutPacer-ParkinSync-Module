@@ -192,6 +192,20 @@
             </p>
         </section>
 
+        <!-- 同意の撤回・全データ削除（COMP-01 C-05）-->
+        <section class="bg-white rounded-2xl p-4 shadow-sm border border-rose-200 js-input-only">
+            <div class="text-xs font-bold text-rose-700 uppercase tracking-wider mb-1">データの削除</div>
+            <p class="text-xs text-slate-600 mt-1 leading-relaxed">
+                これまでの記録をすべて消します。<strong>元に戻せません。</strong><br>
+                消したあとも、いつでも新しく記録を始められます。
+            </p>
+            <button id="deleteAllBtn" type="button" onclick="onDeleteAllData()"
+                class="mt-3 w-full py-2 rounded-xl border border-rose-300 text-rose-700 text-sm font-bold bg-white hover:bg-rose-50 focus:outline-none focus:ring-2 focus:ring-rose-300">
+                すべての記録を削除する
+            </button>
+            <p id="deleteAllStatus" class="text-xs mt-2 leading-relaxed hidden"></p>
+        </section>
+
         <!-- 任意の利用統計（初期状態は送信しない） -->
         <section class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 js-input-only">
             <div class="flex items-center justify-between">
@@ -531,6 +545,51 @@
                 });
             } catch (e) {
                 console.error('設定の保存に失敗しました', e);
+            }
+        }
+
+        // すべての記録を削除する（同意の撤回・COMP-01 C-05）。
+        // 破壊的なので、押しただけでは実行しない。合言葉を打ってもらう。
+        // サーバー側も同じ合言葉が無ければ 400 を返す（二重の歯止め）。
+        const DELETE_ALL_CONFIRMATION = 'DELETE-ALL';
+
+        async function onDeleteAllData() {
+            const btn = document.getElementById('deleteAllBtn');
+            const status = document.getElementById('deleteAllStatus');
+            const show = (text, cls) => {
+                status.textContent = text;
+                status.className = `text-xs mt-2 leading-relaxed ${cls}`;
+            };
+
+            const typed = prompt(
+                'すべての記録を削除します。元に戻せません。\n' +
+                `続けるには ${DELETE_ALL_CONFIRMATION} と入力してください。`
+            );
+            if (typed === null) return;
+            if (typed.trim() !== DELETE_ALL_CONFIRMATION) {
+                show('入力が一致しなかったので、何も削除していません。', 'text-slate-600');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = '削除しています...';
+            try {
+                const res = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+                    body: JSON.stringify({ action: 'deleteAllData', confirm: DELETE_ALL_CONFIRMATION })
+                });
+                if (res.status === 401) { handleUnauthorized(); return; }
+                if (!res.ok) throw new Error(`削除に失敗しました (${res.status})`);
+                const data = await res.json();
+                show(`${data.deleted ?? 0} 件を削除しました。`, 'text-emerald-700');
+                await fetchDataFromServer();
+            } catch (e) {
+                console.error('全データ削除に失敗しました', e);
+                show('削除できませんでした。記録は残っています。もう一度お試しください。', 'text-rose-700');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'すべての記録を削除する';
             }
         }
 

@@ -1,5 +1,5 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, PutCommand, ScanCommand, DeleteCommand, GetCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, PutCommand, ScanCommand, DeleteCommand, GetCommand, BatchWriteCommand } from "@aws-sdk/lib-dynamodb";
 import { randomUUID } from "node:crypto";
 
 const client = new DynamoDBClient({});
@@ -53,6 +53,61 @@ export function buildRecordTimeMetricItem(metric, now = new Date(), id = randomU
     };
 }
 
+// ─── 全データ削除（同意の撤回・APPI §16）────────────────────────────────
+// COMP-01 の C-05「いつでも撤回・削除できること」。日単位の削除しか無く、
+// 撤回が成立していなかった。
+//
+// 破壊的な操作なので、PIN だけでは実行させない。合言葉を本文に入れさせて
+// 「うっかり」と「同じリクエストの再送」で全消えしないようにする。
+// 復旧は gutpacer-logs の PITR（有効・35日）による。
+export const DELETE_ALL_CONFIRMATION = "DELETE-ALL";
+
+export function validateDeleteAllRequest(body) {
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+        return { error: "Invalid request" };
+    }
+    if (body.confirm !== DELETE_ALL_CONFIRMATION) {
+        return { error: "Confirmation phrase required" };
+    }
+    return { ok: true };
+}
+
+// Scan の結果を BatchWrite の 25件チャンクへ割る。AWS を呼ばずに検算できる
+// よう切り出す。キーは fullDate（gutpacer-logs のパーティションキー）。
+export function buildDeleteAllBatches(items, chunkSize = 25) {
+    const keys = (items || [])
+        .map((item) => item?.fullDate)
+        .filter((fullDate) => typeof fullDate === "string" && fullDate.length > 0);
+    const batches = [];
+    for (let i = 0; i < keys.length; i += chunkSize) {
+        batches.push(keys.slice(i, i + chunkSize).map((fullDate) => ({
+            DeleteRequest: { Key: { fullDate } }
+        })));
+    }
+    return batches;
+}
+
+async function deleteAllLogs() {
+    const result = await docClient.send(new ScanCommand({ TableName: TABLE_NAME }));
+    const items = result.Items || [];
+    const batches = buildDeleteAllBatches(items);
+
+    for (const batch of batches) {
+        await docClient.send(new BatchWriteCommand({
+            RequestItems: { [TABLE_NAME]: batch }
+        }));
+    }
+
+    // 握りつぶさないための固定文字列。件数の食い違いはここでしか見えない。
+    // CLAUDE.md §2.55 に合わせ、メトリクスフィルタを張れる形にしておく。
+    const deleted = batches.reduce((n, b) => n + b.length, 0);
+    console.log(`[DELETE ALL] scanned=${items.length} deleted=${deleted}`);
+    if (deleted !== items.length) {
+        console.log(`[DELETE ALL INCOMPLETE] scanned=${items.length} deleted=${deleted}`);
+    }
+    return deleted;
+}
+
 async function saveRecordTimeMetric(body) {
     if (!METRICS_COLLECTION_ENABLED || !METRICS_TABLE) {
         return { statusCode: 503, error: "Metrics collection is disabled" };
@@ -94,6 +149,15 @@ export const handler = async (event) => {
             const body = JSON.parse(event.body);
 
             // Existing PIN auth and an explicit server flag are both required.
+            if (body.action === "deleteAllData") {
+                const validated = validateDeleteAllRequest(body);
+                if (validated.error) {
+                    return { statusCode: 400, headers, body: JSON.stringify({ error: validated.error }) };
+                }
+                const deleted = await deleteAllLogs();
+                return { statusCode: 200, headers, body: JSON.stringify({ message: "All data deleted", deleted }) };
+            }
+
             if (body.action === "recordTime") {
                 const result = await saveRecordTimeMetric(body);
                 if (result.error) {
