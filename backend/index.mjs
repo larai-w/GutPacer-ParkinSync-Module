@@ -18,6 +18,44 @@ const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
 const TABLE_NAME = "gutpacer-logs";
 const SETTINGS_TABLE = "gutpacer-settings";
+
+// ── 初期化のうちに DynamoDB へ一度つないでおく ────────────────────────
+//
+// 2026-08-26 の実測: **バーストの2番目のリクエストだけが約950ms**かかっていた
+// （1番目は約16ms、3番目以降も速い）。p95 は 984ms で SLO の 500ms を超える。
+//
+// 理由は呼ばれ方にある。ブラウザはまず `OPTIONS` プリフライトを投げ、
+// これはハンドラが即返して **DynamoDB に触れない**。だから
+// **2番目のリクエストが、そのコンテナで最初の DynamoDB 呼び出し**になり、
+// 認証情報の解決と TLS 確立の代金をそこで払う。128MB は CPU が最小なので
+// それが約1秒になる。
+//
+// `new DynamoDBClient()` を書くだけでは足りない。**AWS SDK v3 は実際に
+// コマンドを送るまで、接続も認証情報の解決もしない。**
+//
+// 初期化フェーズに移すと二重に得をする:
+//   1. ウォームなコンテナではリクエスト経路から消える
+//   2. **Lambda は初期化中だけ CPU を上乗せする**ので、同じ処理が速く終わる
+//
+// ⚠️ **ここで例外を投げてはいけない。** モジュール読み込みが失敗すると
+// Init Error になり、関数全体が起動しない（2026-08-20 に Medication Promise が
+// これで6日間止まった）。**必ず握りつぶす。** 温めに失敗しても、
+// 遅くなるだけで動作は変わらない。
+//
+// ⚠️ **定数より後に置くこと。** `SETTINGS_TABLE` より前に書くと
+// TDZ の ReferenceError になり、下の catch がそれを飲み込んで
+// **温めが黙って効かない**（実際に一度やった）。
+if (process.env.AWS_LAMBDA_FUNCTION_NAME) {
+    try {
+        // 存在しないキーを1件読むだけ。**書かない・消さない・副作用なし。**
+        await docClient.send(new GetCommand({
+            TableName: SETTINGS_TABLE,
+            Key: { settingKey: "__warmup__" }
+        }));
+    } catch {
+        // 温められなかっただけ。**動作には影響しない。**
+    }
+}
 // 計測テーブルは環境変数からのみ取る。既定値を置かない。
 // 既定を "gutpacer-metrics" のような本番名にすると、環境変数が抜けたときに
 // test 環境から本番テーブルへ書いてしまう(BEN-004 承認ゲート F-03)。
