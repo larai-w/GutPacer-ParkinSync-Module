@@ -34,3 +34,10 @@ downstream workflows; it is not a clinical interoperability certification.
 The runtime export path is covered by `tests/care-event-runtime-export.test.mjs`, in addition to
 the standalone contract transformer tests. This prevents a schema-valid helper that is not wired
 to the API from being mistaken for a verified production path.
+
+## Canonical contract and drift
+
+[`../schema/care-event-v1.schema.json`](../schema/care-event-v1.schema.json) is the canonical public
+schema. ParkinSync checks its research-adapter copy for semantic equality, while Medication Promise
+checks that its medication-only schema remains a strict specialization. See
+[`../schema/README.md`](../schema/README.md) for the versioning boundary.

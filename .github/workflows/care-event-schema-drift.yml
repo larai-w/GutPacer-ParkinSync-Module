@@ -1,0 +1,57 @@
+name: Care-event schema drift
+
+on:
+  pull_request:
+    paths:
+      - "schema/**"
+      - ".github/workflows/care-event-schema-drift.yml"
+  push:
+    branches: [main]
+    paths:
+      - "schema/**"
+      - ".github/workflows/care-event-schema-drift.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  downstream-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out canonical GutPacer contract
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          path: canonical
+
+      - name: Check out ParkinSync consumer
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: larai-w/ParkinSync
+          path: parkinsync
+
+      - name: Check out Medication Promise producer
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: larai-w/medication-promise-app
+          path: medication-promise
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+
+      - name: Verify ParkinSync's semantic schema copy
+        run: |
+          python3 parkinsync/poc/gutpacer-parkinsync/check_schema_drift.py \
+            canonical/schema/care-event-v1.schema.json \
+            parkinsync/poc/gutpacer-parkinsync/schema/care-event-v1.schema.json
+
+      - name: Verify Medication Promise's strict specialization
+        run: |
+          node medication-promise/web/scripts/check-care-event-schema-drift.mjs \
+            canonical/schema/care-event-v1.schema.json \
+            medication-promise/docs/schemas/medication-promise-export-v1.schema.json
