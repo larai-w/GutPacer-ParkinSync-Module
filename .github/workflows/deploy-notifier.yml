@@ -1,4 +1,9 @@
-name: Deploy Notifier Lambda
+name: Deploy Notifier Lambda (legacy index.mjs)
+
+# ⚠️ **同じ関数を2つのワークフローがデプロイする。**
+#   - このファイル        → `backend/notifier/index.mjs`（旧実装）
+#   - deploy-closed-beta  → `backend/notifier/index-mvp.mjs`（**本番で動いている実装**）
+# 後に走ったほうが勝つ。触るときは必ず両方を見ること。
 
 on:
   workflow_dispatch:
@@ -6,7 +11,14 @@ on:
     branches:
       - main
     paths:
-      - 'backend/notifier/**'
+      # ⚠️ **`backend/notifier/**` にしない。**
+      # このワークフローが出すのは旧実装の `index.mjs` だけ。
+      # 本番で動いているのは `index-mvp.mjs`（deploy-closed-beta.yml が出す）。
+      # 広く拾うと、`index-mvp.mjs` を直しただけでこちらが起動し、
+      # **本番を旧コードで上書きする**。
+      # 2026-08-27 に実際に起きた: issue #3 の PR が `backend/notifier/**` に
+      # 触れたため、世帯対応済みの notifier が旧テーブル直書きの実装へ戻った。
+      - 'backend/notifier/index.mjs'
       - '.github/workflows/deploy-notifier.yml'
 
 env:
