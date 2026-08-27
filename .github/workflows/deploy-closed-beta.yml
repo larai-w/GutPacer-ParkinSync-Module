@@ -1,5 +1,11 @@
 name: Deploy GutPacer closed beta
 
+# ⚠️ **同じ関数を2つのワークフローがデプロイする。**
+#   - このファイル       -> backend/notifier/index-mvp.mjs（**本番で動いている実装**）
+#   - deploy-notifier.yml -> backend/notifier/index.mjs（旧実装）
+# 後に走ったほうが勝つ。触るときは必ず両方を見ること。
+# 2026-08-27 に、旧実装が本番を上書きして逆戻りした。
+
 on:
   workflow_dispatch:
     inputs:
