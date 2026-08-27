@@ -264,7 +264,8 @@ async function listConsentRecords() {
     // このテーブルは単一世帯用で数アイテムしかないので Scan で読む。
     // 件数が増える設計に変わるなら、テーブル設計から見直すこと。
     const result = await docClient.send(new ScanCommand({ TableName: SETTINGS_TABLE }));
-    return extractConsentRecords(result.Items);
+    // **世帯を渡す。** 渡さないと他所帯の同意で通ってしまう（issue #5）。
+    return extractConsentRecords(result.Items, CONSENT_SUBJECT);
 }
 
 async function putConsentRecord(record) {

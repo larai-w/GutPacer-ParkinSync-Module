@@ -168,9 +168,27 @@ export function buildRevokeRecord(previous, consentId, now) {
 }
 
 /** 保存アイテムから同意レコードだけを取り出す。 */
-export function extractConsentRecords(items) {
+/**
+ * 保存された item から同意記録を取り出す。
+ *
+ * ⚠️ **`subject` を必ず渡すこと。** 渡さないと全世帯ぶんが返る。
+ *
+ * 2026-08-27（issue #5）: 同意記録のキー（`consent#<type>#<id>`）に世帯が
+ * 入っておらず、読み出しはテーブル全体の Scan だった。世帯が2つになると
+ * **A世帯の同意チェックが B世帯の記録を見る。** B が同意していれば、
+ * **A は同意していないのに通ってしまう。**
+ * プライバシー以前に、**同意の帰属が壊れる**（COMP-01）。
+ *
+ * キーは変えない。既存の記録に `record.userId` が入っているので、そこで絞る。
+ * （`settingKey` は HASH のみなので、キーを変えても Query はできない。）
+ */
+export function extractConsentRecords(items, subject) {
     return (items || [])
         .filter((i) => typeof i?.settingKey === 'string' && i.settingKey.startsWith(CONSENT_SETTING_PREFIX))
         .map((i) => i.record)
-        .filter((r) => r && isConsentType(r.consentType));
+        .filter((r) => r && isConsentType(r.consentType))
+        // **世帯で絞る。** subject を渡さない呼び出しは、何も返さない
+        // （fail closed）。「全部返す」を既定にすると、
+        // 呼び忘れたときに他所帯の同意で通ってしまう。
+        .filter((r) => r.userId === subject);
 }
