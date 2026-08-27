@@ -98,9 +98,13 @@
 
     <header class="bg-white border-b border-slate-200 py-6 px-4 text-center shadow-sm">
         <div class="flex flex-col items-center justify-center gap-2">
-            <div class="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-800 rounded-2xl shadow-md flex items-center justify-center text-white text-3xl">
-                <i class="fa-solid fa-arrows-spin"></i>
-            </div>
+            <!-- ロゴは正式マーク（棒グラフ）の画像を使う。
+                 以前は Font Awesome のアイコン（fa-arrows-spin）を青いグラデーションの
+                 四角に入れていたが、**製品ページの正式な見た目（📊・#e5f3e2）と違っていた**。
+                 加えて、**Font Awesome が読めない環境ではロゴが消える**
+                 （2026-08-27 にオーナーの環境で発生）。画像なら外部フォントに依存しない。 -->
+            <img src="./apple-touch-icon.png" alt="GutPacer" width="64" height="64"
+                 class="w-16 h-16 rounded-2xl shadow-md" />
             <h1 class="text-xl font-bold tracking-tight mt-2 text-indigo-950">GutPacer</h1>
             <p class="text-xs text-slate-500 font-medium">
                 <span class="family-only">排便・服薬を残す家族向け記録 // Module of ParkinSync</span>
@@ -258,7 +262,7 @@
                 </button>
             </div>
             <p class="text-xs text-slate-600 mt-2 leading-relaxed">
-                やわらかい配色に変えます。**この端末だけの設定**で、記録の中身は変わりません。<br>
+                やわらかい配色に変えます。<strong>この端末だけの設定</strong>で、記録の中身は変わりません。<br>
                 事業所に見せる画面と PDF は、切り替えても標準のままです。
             </p>
         </section>
