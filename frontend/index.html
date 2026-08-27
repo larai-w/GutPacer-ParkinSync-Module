@@ -15,6 +15,56 @@
     <style>
         -webkit-tap-highlight-color: transparent;
 
+        /* ===== 表示の方向（issue #42・2026-08-27）=====
+         *
+         * 既定は「事実中心」。**事業所閲覧・PDF と同じ見た目**にする。
+         * 家族が見ているものと、ケアマネや看護師が受け取るものが揃うので、
+         * 共有したときに「印象が違う」が起きない。
+         *
+         * 色は Tailwind の indigo-* クラスをそのまま使い、
+         * **変数で上書きする。** クラス名を書き換えると58箇所に触ることになり、
+         * 毎日使う画面で取りこぼす危険のほうが大きい。
+         *
+         * 「やわらか標準」は取り下げた。#36 で推奨候補になっていたが、
+         * プロトタイプに配色が無く**誰も見ないまま選ばれていた**。
+         * 描いて見せたら選ばれなかった。
+         */
+        :root {
+            --gp-accent: #31556e;
+            --gp-accent-strong: #203f54;
+            --gp-accent-soft: #eaf0f4;
+            --gp-accent-line: #c9d6e0;
+        }
+
+        /* 親しみ表示は**家族の入力画面だけ**。既定はオフ。
+         * `body.view-care`（事業所閲覧）には出さない。
+         * PDF は書き出し前に一時的に外す（generatePdf 側）。
+         *
+         * ⚠️ **記録された結果に良し悪しの意味を与えない。**
+         * 「記録できましたね」までで、「今日は良いですね」は超えている。
+         * 体調が悪い日に画面から評価されるのは、続ける力を削る。 */
+        body[data-display="friendly"]:not(.view-care) {
+            --gp-accent: #b44f36;
+            --gp-accent-strong: #8f3927;
+            --gp-accent-soft: #fff0e9;
+            --gp-accent-line: #f0cfc4;
+        }
+
+        body .text-indigo-600,
+        body .text-indigo-400 { color: var(--gp-accent); }
+        body .text-indigo-700,
+        body .text-indigo-800,
+        body .text-indigo-950 { color: var(--gp-accent-strong); }
+        body .bg-indigo-600,
+        body .bg-indigo-500 { background-color: var(--gp-accent); }
+        body .bg-indigo-50 { background-color: var(--gp-accent-soft); }
+        body .hover\:bg-indigo-700:hover { background-color: var(--gp-accent-strong); }
+        body .border-indigo-600 { border-color: var(--gp-accent); }
+        body .border-indigo-200 { border-color: var(--gp-accent-line); }
+        body .focus\:border-indigo-500:focus { border-color: var(--gp-accent); }
+        body .ring-indigo-500 { --tw-ring-color: var(--gp-accent); }
+        body .to-indigo-800 { --tw-gradient-to: var(--gp-accent-strong); }
+
         /* ===== 事業所閲覧モード ===== */
         /* .view-care が body に付いているとき入力系を非表示にする */
         body.view-care .js-input-only {
@@ -189,6 +239,27 @@
             <p class="text-xs text-slate-600 mt-2 leading-relaxed">
                 「施設」にすると、リマインド通知を止めます(施設で職員が見てくれている間の通知オフ)。<br>
                 記録はどちらの設定でもこれまで通り残せます。
+            </p>
+        </section>
+
+        <!-- 表示の切り替え（issue #42・2026-08-27）
+             既定はオフ。**家族の入力画面だけ**に効く。
+             事業所閲覧と PDF には出さない（共有されるものは常に事実中心）。 -->
+        <section class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 js-input-only">
+            <div class="flex items-center justify-between">
+                <div>
+                    <div class="text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">表示 (Display)</div>
+                    <div id="displayLabel" class="font-bold text-slate-600 text-sm">標準</div>
+                </div>
+                <button id="displayToggleBtn" type="button" onclick="onDisplayToggle()"
+                    aria-pressed="false"
+                    class="relative w-16 h-8 rounded-full transition-colors duration-300 focus:outline-none bg-slate-300">
+                    <span id="displayDot" class="absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow-sm transition-all duration-300"></span>
+                </button>
+            </div>
+            <p class="text-xs text-slate-600 mt-2 leading-relaxed">
+                やわらかい配色に変えます。**この端末だけの設定**で、記録の中身は変わりません。<br>
+                事業所に見せる画面と PDF は、切り替えても標準のままです。
             </p>
         </section>
 
@@ -565,6 +636,9 @@
         window.onload = async function() {
             // 事業所/家族モードを最初に確定する（CSSで出し分けるのでPIN/LIFF前に実行）
             initViewMode();
+            // 表示の設定も最初に当てる。**認証より前**に当てないと、
+            // 開いた瞬間に標準で描かれてから切り替わり、ちらつく。
+            applyDisplaySetting(loadDisplaySetting());
             applyMetricsConsentToggle();
 
             const today = new Date();
@@ -610,6 +684,53 @@
         }
 
         // トグルボタンを押したとき
+        // ===== 表示の切り替え（issue #42・2026-08-27）=====
+        //
+        // **この端末だけの設定。** サーバーにも記録にも送らない。
+        // 表示の好みが、保存されるものや書き出されるものを変えてはいけない。
+        const DISPLAY_STORAGE_KEY = 'gutpacer_display';
+
+        function applyDisplaySetting(value) {
+            const friendly = value === 'friendly';
+            document.body.dataset.display = friendly ? 'friendly' : 'factual';
+
+            const label = document.getElementById('displayLabel');
+            const btn = document.getElementById('displayToggleBtn');
+            const dot = document.getElementById('displayDot');
+            if (label) label.textContent = friendly ? 'やわらかい' : '標準';
+            if (btn) {
+                btn.setAttribute('aria-pressed', String(friendly));
+                btn.classList.toggle('bg-slate-300', !friendly);
+                btn.classList.toggle('bg-indigo-600', friendly);
+            }
+            if (dot) {
+                dot.classList.toggle('left-1', !friendly);
+                dot.classList.toggle('left-9', friendly);
+            }
+        }
+
+        function loadDisplaySetting() {
+            // localStorage が使えない環境でも落とさない（プライベートモード等）。
+            // 読めなければ既定（標準）で動く。
+            try {
+                return localStorage.getItem(DISPLAY_STORAGE_KEY) === 'friendly'
+                    ? 'friendly' : 'factual';
+            } catch (e) {
+                return 'factual';
+            }
+        }
+
+        function onDisplayToggle() {
+            const next = loadDisplaySetting() === 'friendly' ? 'factual' : 'friendly';
+            try {
+                localStorage.setItem(DISPLAY_STORAGE_KEY, next);
+            } catch (e) {
+                // 保存できなくても、その場では切り替える。
+                console.warn('表示設定を保存できませんでした', e);
+            }
+            applyDisplaySetting(next);
+        }
+
         async function onLocationToggle() {
             const current = localStorage.getItem('gutpacer_location') || 'home';
             const next = current === 'home' ? 'facility' : 'home';
@@ -1101,6 +1222,13 @@
             pdfBtn.disabled = true;
             pdfBtn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> 生成中...';
 
+            // ⚠️ **書き出しは常に標準（事実中心）。**
+            // 家族の表示の好みが、ケアマネや看護師が受け取るものを変えてはいけない
+            // （DISPLAY_DIRECTION_EVALUATION.md）。
+            // 生成中だけ外し、finally で必ず戻す。
+            const displayBeforePdf = document.body.dataset.display;
+            document.body.dataset.display = 'factual';
+
             try {
                 const container = document.getElementById('pdfReportContent');
                 container.innerHTML = buildPdfReportHtml(currentLogs);
@@ -1136,6 +1264,8 @@
             } catch (error) {
                 alert('PDF生成に失敗しました: ' + error.message);
             } finally {
+                // **必ず戻す。** 書き出しで失敗しても、家族の画面の設定は変えない。
+                if (displayBeforePdf) document.body.dataset.display = displayBeforePdf;
                 pdfBtn.disabled = false;
                 pdfBtn.innerHTML = originalLabel;
             }

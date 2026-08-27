@@ -19,13 +19,56 @@ All four directions preserve the current structured fields: date, condition, bow
 
 The current production baseline is a control, not a fourth redesign recommendation. It keeps the existing visual width, indigo palette, rounded cards, mixed-language section headings, and bowel-section emoji visible so that reviewers can identify what would actually change. It contains no real family records, PIN, API endpoint, or facility information.
 
-## Decision
+## Decision (revised 2026-08-27)
 
-The candidate default is **soft non-mascot standard** for the family experience. Care-staff viewing and PDF/export use the **factual standard** regardless of the family's presentation preference.
+> ### ⚠️ The original decision was made without seeing the option it chose.
+>
+> The first version of this document named **soft non-mascot standard** as the
+> candidate default. On 2026-08-27, while starting the implementation, we found
+> that the prototype had **no `[data-direction="soft"]` palette**. The button and
+> the description existed, but selecting it changed nothing: it fell back to the
+> prototype page's own chrome.
+>
+> **The recommended direction had never been rendered.** The comparison could not
+> have shown it. See PR that adds the missing palette.
+>
+> After the palette was added and the four directions were compared for real, the
+> person who uses the app daily did not prefer *soft*. They found *current* and
+> *factual* equally usable, and liked the *optional friendly treatment*.
+
+**The default for family entry is the `factual standard`.**
+
+The choice is not based on taste. All three non-decorative directions were
+judged equally usable, which means **the palette is not where the value is**.
+So the direction is chosen on a structural reason instead:
+
+- Care-staff viewing and PDF/export are **already factual** and stay that way.
+- Making family entry factual too means **every context shares one visual
+  language**. What the family looks at matches what a care manager or nurse
+  receives, so sharing holds no surprise.
+- It also makes the optional friendly treatment **the only visual marker of the
+  private context**, which is what an opt-in should be.
+
+`current` (indigo) would leave family entry looking different from the shared
+views for no stated reason. **`soft` is withdrawn**: it had no reason behind it
+and, once visible, was not preferred.
+
+Care-staff viewing and PDF/export use the **factual standard** regardless of the
+family's presentation preference. **A presentation preference must never change
+what a professional receives.**
 
 The current production UI remains unchanged until the implementation issue is reviewed and completed. The baseline stays available as comparison and rollback evidence after a new default is selected.
 
 The friendly treatment remains an optional presentation layer for the private family daily-entry context. It is not the GutPacer product identity, it does not appear in shared records, and it does not assign a positive or negative meaning to a recorded outcome.
+
+**This is the part with real value.** Bowel recording is hard to sustain, and a
+presentation the family actually likes helps them keep going. That is why the
+opt-in ships even though the default palette barely changes anything.
+
+> ⚠️ **The character must not react to what was recorded.**
+> "You recorded it" is fine. "That looks good today" is not.
+> Being assessed by the screen on a bad day takes away the will to keep recording.
+> This is a boundary, not a style preference.
 
 ## Release boundary
 
