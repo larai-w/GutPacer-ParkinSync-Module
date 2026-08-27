@@ -149,9 +149,16 @@ await test("MVP API: 誤った招待コードは403でプロフィールを作�
     assert.equal(db.calls.some((call) => call.name === "PutCommand"), false);
 });
 
-await test("MVP API: GET は検証済みuserIdだけでQueryする", async () => {
+await test("MVP API: GET は本人の世帯だけでQueryする", async () => {
+    // 2026-08-27（issue #3）: 記録を分ける単位を**個人から世帯へ**変えた。
+    // LINE の userId は「誰か」を確かめるためのもので、
+    // 「誰の記録か」を分ける単位ではない。招待された2人目の介護者が
+    // 同じ家の記録を見られる必要がある（#4）。
+    //
+    // **守っている性質は変わらない**: 本文の値を信用せず、
+    // **検証済みの身元から辿った**世帯だけを使う。
     const db = createFakeDb({
-        GetCommand: () => ({ Item: { userId: "U-verified", location: "home" } }),
+        GetCommand: () => ({ Item: { userId: "U-verified", householdId: "household:test", location: "home" } }),
         QueryCommand: () => ({
             Items: [
                 { userId: "U-verified", fullDate: "2026-07-15" },
@@ -163,13 +170,14 @@ await test("MVP API: GET は検証済みuserIdだけでQueryする", async () =>
     const res = await handler({ requestContext: { http: { method: "GET" } }, headers: {} });
     assert.equal(res.statusCode, 200);
     const query = db.calls.find((call) => call.name === "QueryCommand");
-    assert.equal(query.input.ExpressionAttributeValues[":userId"], "U-verified");
+    assert.equal(query.input.ExpressionAttributeValues[":userId"], "household:test",
+        "個人の userId で引いている。世帯で引かないと PIN 経路と記録が割れる");
     assert.deepEqual(JSON.parse(res.body).logs.map((log) => log.fullDate), ["2026-07-16", "2026-07-15"]);
 });
 
-await test("MVP API: POST は本文のuserIdを信用せず検証済みuserIdで保存する", async () => {
+await test("MVP API: POST は本文のuserIdを信用せず、本人の世帯で保存する", async () => {
     const db = createFakeDb({
-        GetCommand: () => ({ Item: { userId: "U-verified", location: "home" } }),
+        GetCommand: () => ({ Item: { userId: "U-verified", householdId: "household:test", location: "home" } }),
         PutCommand: () => ({})
     });
     const handler = authedMvpHandler("U-verified", db);
@@ -180,13 +188,17 @@ await test("MVP API: POST は本文のuserIdを信用せず検証済みuserIdで
     });
     assert.equal(res.statusCode, 200);
     const put = db.calls.find((call) => call.name === "PutCommand" && call.input.TableName === "gutpacer-logs-v2");
-    assert.equal(put.input.Item.userId, "U-verified");
+    assert.equal(put.input.Item.userId, "household:test",
+        "本文の userId が通っている、または個人キーで書いている");
+    assert.notEqual(put.input.Item.userId, "U-attacker", "本文の userId を信用している");
     assert.equal(put.input.Item.fullDate, "2026-07-16");
 });
 
-await test("MVP API: DELETE は検証済みuserIdとfullDateをキーにする", async () => {
+await test("MVP API: DELETE は読み書きと同じ世帯キーで消す", async () => {
+    // **ここだけ個人キーのままだと、書いた記録が一件も消せない。**
+    // 撤回が成立しなくなる（COMP-01 C-05）。実際に一度そうなった。
     const db = createFakeDb({
-        GetCommand: () => ({ Item: { userId: "U-verified", location: "home" } }),
+        GetCommand: () => ({ Item: { userId: "U-verified", householdId: "household:test", location: "home" } }),
         DeleteCommand: () => ({})
     });
     const handler = authedMvpHandler("U-verified", db);
@@ -197,7 +209,8 @@ await test("MVP API: DELETE は検証済みuserIdとfullDateをキーにする",
     });
     assert.equal(res.statusCode, 200);
     const del = db.calls.find((call) => call.name === "DeleteCommand");
-    assert.deepEqual(del.input.Key, { userId: "U-verified", fullDate: "2026-07-16" });
+    assert.deepEqual(del.input.Key, { userId: "household:test", fullDate: "2026-07-16" },
+        "読み書きと削除でキーが揃っていない。書いた記録が消せない");
 });
 
 await test("MVP API: care-event/v1 export は認証済み世帯のQuery結果だけを返す", async () => {
@@ -334,12 +347,20 @@ await test("Notifier: モジュールがロードでき handler が関数であ�
     assert.equal(typeof notifierModule.handler, "function");
 });
 
-await test("MVP Notifier: ユーザーごとのキーで記録を確認し個別送信する", async () => {
+await test("MVP Notifier: 記録は世帯で引き、送信は個人ごとに行う", async () => {
+    // 2026-08-27（issue #3）: 記録のキーを個人から**世帯**へ変えた。
+    //
+    // **2つを混ぜないこと。**
+    //   - 記録を引くキー → 世帯（同じ家の記録は誰が入れても同じ場所）
+    //   - LINE を送る宛先 → **個人**（誰のスマホに届くかは人ごと）
+    //
+    // ここを世帯のまま送ると、**全員に同じ通知が飛ぶ**。
+    // 記録を個人で引くと、**記録済みでも見つからず毎日リマインドが飛ぶ**。
     const db = createFakeDb({
         ScanCommand: () => ({
             Items: [
-                { userId: "U-one", location: "home", notify: { remindAfterDays: 1, warnAfterDays: 2 } },
-                { userId: "U-two", location: "facility", notify: { remindAfterDays: 1, warnAfterDays: 2 } }
+                { userId: "U-one", householdId: "household:one", location: "home", notify: { remindAfterDays: 1, warnAfterDays: 2 } },
+                { userId: "U-two", householdId: "household:two", location: "facility", notify: { remindAfterDays: 1, warnAfterDays: 2 } }
             ]
         }),
         GetCommand: () => ({})
@@ -352,10 +373,15 @@ await test("MVP Notifier: ユーザーごとのキーで記録を確認し個別
     });
     const res = await handler();
     assert.equal(res.statusCode, 200);
-    assert.deepEqual(sent, ["U-one"]);
+    // 送信先は個人のまま
+    assert.deepEqual(sent, ["U-one"], "送信先が個人でなくなっている");
     const gets = db.calls.filter((call) => call.name === "GetCommand");
     assert.ok(gets.length > 0);
-    assert.ok(gets.every((call) => call.input.Key.userId === "U-one"));
+    // 記録は世帯で引く
+    assert.ok(
+        gets.every((call) => call.input.Key.userId === "household:one"),
+        "記録を個人キーで引いている。記録済みでも見つからず毎日リマインドが飛ぶ"
+    );
 });
 
 await test("MVP Notifier: 1ユーザーの送信失敗後も他ユーザーを処理して失敗を通知する", async () => {

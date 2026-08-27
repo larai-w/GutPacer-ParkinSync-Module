@@ -3,6 +3,18 @@ import { DynamoDBDocumentClient, GetCommand, ScanCommand } from "@aws-sdk/lib-dy
 
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 const LOGS_TABLE = process.env.LOGS_TABLE || "gutpacer-logs-v2";
+
+// ⚠️ **ここは `backend/profile-defaults.mjs` から import しない。**
+// この関数の zip は `index.mjs` 1枚を root に置く形なので、
+// `../profile-defaults.mjs` は**実行時に解決できない**（Init Error で止まる）。
+// 2026-08-20 に Medication Promise が同じ形で6日間止まり、
+// 2026-08-24 に GutPacer の `consent.mjs` でも同じことが起きた。
+//
+// 値が2か所に分かれるが、**一致することをテストで縛る**
+// （tests/household-id-consistency.test.mjs）。
+const DEFAULT_HOUSEHOLD_ID = process.env.HOUSEHOLD_ID
+    || process.env.CONSENT_SUBJECT
+    || "household:gutpacer-default";
 const USERS_TABLE = process.env.USERS_TABLE || "gutpacer-users";
 const APP_URL = process.env.APP_URL || "https://veai.jp/gutpacer/";
 
@@ -83,10 +95,19 @@ export function createNotifierHandler(dependencies = {}) {
         sendLineMessage(userId, message, dependencies));
     const logger = dependencies.logger || console;
 
-    async function hadStool(userId, date) {
+    // 記録は**世帯**のキーで入っている（issue #3・2026-08-27）。
+    // ここを LINE の userId のまま引くと、**記録済みでも見つからず、
+    // 毎日リマインドを送る**ことになる。
+    // プロフィールから世帯を取る。**個人の userId は「誰か」を確かめるためのもので、
+    // 「誰の記録か」を分ける単位ではない**（issue #3）。
+    function householdOf(profile) {
+        return profile?.householdId || DEFAULT_HOUSEHOLD_ID;
+    }
+
+    async function hadStool(householdId, date) {
         const result = await db.send(new GetCommand({
             TableName: LOGS_TABLE,
-            Key: { userId, fullDate: date }
+            Key: { userId: householdId, fullDate: date }
         }));
         return result.Item?.bowel != null;
     }
@@ -109,7 +130,9 @@ export function createNotifierHandler(dependencies = {}) {
                 let missingDays = 0;
 
                 for (let offset = 1; offset <= 7; offset++) {
-                    if (await hadStool(profile.userId, getJSTDate(-offset, now()))) break;
+                    // **プロフィールの世帯で引く。** profile.userId（LINE の個人）
+                    // ではない。まだ世帯を持たない古いプロフィールは既定値へ。
+                    if (await hadStool(householdOf(profile), getJSTDate(-offset, now()))) break;
                     missingDays++;
                 }
 
