@@ -1,5 +1,5 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, PutCommand, QueryCommand, ScanCommand, DeleteCommand, GetCommand, BatchWriteCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, PutCommand, QueryCommand, ScanCommand, DeleteCommand, GetCommand, UpdateCommand, BatchWriteCommand } from "@aws-sdk/lib-dynamodb";
 import { randomUUID } from "node:crypto";
 import {
     CONSENT_SETTING_PREFIX,
@@ -154,6 +154,104 @@ export function buildDeleteAllBatches(items, chunkSize = 25) {
     return batches;
 }
 
+// ─── PIN の総当たり対策（2026-08-27）──────────────────────────────────
+//
+// 測ってから入れた。当時の実態:
+//   - PIN は **4桁の数字**（10,000通り）
+//   - レート制限**なし**（予約同時実行なし・関数URLは AuthType NONE）
+//   - エンドポイントは `config.js` で**公開**されていた
+//   → 毎秒10回試せば平均8分で当たる計算（**実際には試していない**）
+//
+// **第一の手当ては PIN を長くすること。** これはその次の層。
+// 長さだけに頼ると、桁数を戻されたときに何も残らない。
+
+export const MAX_FAILED_ATTEMPTS = 5;
+export const LOCKOUT_SECONDS = 900;          // 15分
+const ATTEMPT_KEY_PREFIX = "pinfail#";
+
+function attemptKey(sourceIp) {
+    return `${ATTEMPT_KEY_PREFIX}${sourceIp}`;
+}
+
+/**
+ * 締め出し中かどうか。
+ *
+ * ⚠️ **ここで失敗しても認証は止めない。** これは追加の層であって、
+ * 認証そのものではない。DynamoDB が落ちたときに
+ * **家族が入れなくなるほうが困る**（夜間の記録が止まる）。
+ * 代わりに、失敗したことはログに残す。
+ */
+async function isLockedOut(sourceIp) {
+    try {
+        const result = await docClient.send(new GetCommand({
+            TableName: SETTINGS_TABLE,
+            Key: { settingKey: attemptKey(sourceIp) }
+        }));
+        const item = result.Item;
+        if (!item) return false;
+        if (Number(item.expiresAt || 0) * 1000 < Date.now()) return false;
+        return Number(item.count || 0) >= MAX_FAILED_ATTEMPTS;
+    } catch (error) {
+        console.log(`[PIN LOCKOUT CHECK FAILED] ${error.message}`);
+        return false;
+    }
+}
+
+/**
+ * 失敗を1つ数える。**失敗しても認証の判定は変えない。**
+ *
+ * ⚠️ **`expiresAt` は DynamoDB の TTL 属性。** このテーブルには
+ * **同意記録も入っている**（監査記録なので絶対に消してはいけない）。
+ * 同意記録にトップレベルの `expiresAt` を付けると、**TTL が消す。**
+ * 同意の有効期限は `record.expiresAt`（入れ子）に置くこと。
+ */
+async function recordFailedAttempt(sourceIp) {
+    try {
+        const expiresAt = Math.floor(Date.now() / 1000) + LOCKOUT_SECONDS;
+        await docClient.send(new UpdateCommand({
+            TableName: SETTINGS_TABLE,
+            Key: { settingKey: attemptKey(sourceIp) },
+            UpdateExpression: "ADD #c :one SET expiresAt = :exp, updatedAt = :now",
+            ExpressionAttributeNames: { "#c": "count" },
+            ExpressionAttributeValues: {
+                ":one": 1,
+                ":exp": expiresAt,
+                ":now": new Date().toISOString()
+            }
+        }));
+    } catch (error) {
+        console.log(`[PIN ATTEMPT RECORD FAILED] ${error.message}`);
+    }
+}
+
+/** 正しい PIN が入ったら数え直す。 */
+async function clearFailedAttempts(sourceIp) {
+    try {
+        await docClient.send(new DeleteCommand({
+            TableName: SETTINGS_TABLE,
+            Key: { settingKey: attemptKey(sourceIp) }
+        }));
+    } catch (error) {
+        console.log(`[PIN ATTEMPT CLEAR FAILED] ${error.message}`);
+    }
+}
+
+/**
+ * 文字列を定数時間で比較する。
+ *
+ * 素の `!==` は**違う位置で早く返る**ため、応答時間から1文字ずつ絞り込める。
+ * 長さの違いだけは先に返すが、それは長さが漏れるだけで中身は漏れない。
+ */
+export function timingSafeEqualString(a, b) {
+    if (typeof a !== "string" || typeof b !== "string") return false;
+    if (a.length !== b.length) return false;
+    let diff = 0;
+    for (let i = 0; i < a.length; i += 1) {
+        diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+    }
+    return diff === 0;
+}
+
 // ─── 同意（COMP-01 Phase 2）────────────────────────────────────────────────
 // 同意の主体。この運用は単一世帯・共有PINなので、世帯を1件として扱う。
 // **固定文字列に落とさない**（将来 LINE ログイン版で個人が分かれたときに
@@ -246,9 +344,28 @@ export const handler = async (event) => {
         }
 
         const pin = event.headers?.['x-pin'];
-        if (!pin || pin !== process.env.ACCESS_PIN) {
+        const sourceIp = event.requestContext?.http?.sourceIp || "unknown";
+
+        // **総当たりを止める。** 2026-08-27 に測ったところ、PIN は4桁の数字で
+        // レート制限が無く、関数URLは公開されていた。**毎秒10回で平均8分**で
+        // 当たる計算だった（実際には試していない）。
+        // PIN を長くするのが第一だが、長さだけに頼らない。
+        if (await isLockedOut(sourceIp)) {
+            console.log(`[PIN LOCKOUT] ip=${sourceIp}`);
+            return {
+                statusCode: 429,
+                headers: { ...headers, "Retry-After": String(LOCKOUT_SECONDS) },
+                body: JSON.stringify({ error: "Too many attempts" })
+            };
+        }
+
+        // **定時間で比較する。** 素の `!==` は先頭から違う位置で返るため、
+        // 応答時間から1文字ずつ絞り込める。桁数が増えるほど効いてくる。
+        if (!pin || !timingSafeEqualString(pin, process.env.ACCESS_PIN || "")) {
+            await recordFailedAttempt(sourceIp);
             return { statusCode: 401, headers, body: JSON.stringify({ error: "Unauthorized" }) };
         }
+        await clearFailedAttempts(sourceIp);
 
         if (method === "POST") {
             const body = JSON.parse(event.body);
