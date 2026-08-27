@@ -10,7 +10,9 @@
 
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 import {
     CONSENT_SETTING_PREFIX,
@@ -239,14 +241,14 @@ test("同意以外の設定を巻き込まない", () => {
         { settingKey: "consent#bogus#c2", record: rec({ consentType: "marketing" }) },
         { settingKey: makeConsentSettingKey("event_export", "c3"), record: null },
     ];
-    const out = extractConsentRecords(items);
+    const out = extractConsentRecords(items, "household-1");
     assert.equal(out.length, 1, "location や不正な種別を拾っている");
     assert.equal(out[0].consentType, "basic");
 });
 
 test("空でも落ちない", () => {
-    assert.deepEqual(extractConsentRecords([]), []);
-    assert.deepEqual(extractConsentRecords(undefined), []);
+    assert.deepEqual(extractConsentRecords([], "household-1"), []);
+    assert.deepEqual(extractConsentRecords(undefined, "household-1"), []);
 });
 
 test("ポリシーの版が privacy.html の改定日と実際に一致している", () => {
@@ -268,4 +270,73 @@ test("文言の版は YYYY-MM-DD か YYYY-MM-DD-N（同日に2回直すことが
     assert.ok(m, `版の形が違う: ${CONSENT_TEXT_VERSION}`);
     assert.ok(!Number.isNaN(new Date(m[1]).getTime()), `日付として読めない: ${m[1]}`);
     if (m[2]) assert.ok(Number(m[2]) >= 2, "同日の連番は 2 から始める");
+});
+
+// ── 世帯をまたがないこと（issue #5・2026-08-27）──────────────────────
+//
+// 同意記録のキー（`consent#<type>#<id>`）に世帯が入っておらず、
+// 読み出しはテーブル全体の Scan だった。世帯が2つになると
+// **A世帯の同意チェックが B世帯の記録を見る。**
+// B が同意していれば、**A は同意していないのに通ってしまう。**
+// プライバシー以前に、**同意の帰属が壊れる**（COMP-01）。
+
+test("他所帯の同意を自分の同意として拾わない", () => {
+    const items = [
+        { settingKey: makeConsentSettingKey("basic", "c-other"),
+          record: { ...rec({ consentType: "basic" }), userId: "household-2" } },
+    ];
+    const out = extractConsentRecords(items, "household-1");
+    assert.deepEqual(
+        out, [],
+        "他所帯の同意を拾っている。**同意していないのに通ってしまう**"
+    );
+});
+
+test("自分の世帯の同意だけを返す", () => {
+    const items = [
+        { settingKey: makeConsentSettingKey("basic", "c1"),
+          record: { ...rec({ consentType: "basic" }), userId: "household-1" } },
+        { settingKey: makeConsentSettingKey("basic", "c2"),
+          record: { ...rec({ consentType: "basic" }), userId: "household-2" } },
+        { settingKey: makeConsentSettingKey("event_export", "c3"),
+          record: { ...rec({ consentType: "event_export" }), userId: "household-1" } },
+    ];
+    const out = extractConsentRecords(items, "household-1");
+    assert.equal(out.length, 2, "自分の世帯の件数が合わない");
+    assert.ok(out.every((r) => r.userId === "household-1"), "他所帯が混ざっている");
+});
+
+test("世帯を渡さなければ何も返さない（fail closed）", () => {
+    // **「全部返す」を既定にしない。** 呼び忘れたときに
+    // 他所帯の同意で通ってしまう。
+    const items = [
+        { settingKey: makeConsentSettingKey("basic", "c1"),
+          record: { ...rec({ consentType: "basic" }), userId: "household-1" } },
+    ];
+    assert.deepEqual(extractConsentRecords(items), [], "世帯なしで同意を返している");
+    assert.deepEqual(extractConsentRecords(items, undefined), []);
+    assert.deepEqual(extractConsentRecords(items, ""), []);
+});
+
+test("呼び出し側が世帯を渡している", () => {
+    // ⚠️ 純粋関数だけ見ていると、**呼び出しから引数が落ちても気づけない。**
+    // 落ちると fail closed で安全側には倒れるが、
+    // **同意済みの人が毎回同意画面を見る**ことになる。
+    const src = readFileSync(
+        join(dirname(fileURLToPath(import.meta.url)), "..", "backend", "index.mjs"),
+        "utf8",
+    );
+    const calls = [...src.matchAll(/extractConsentRecords\(([^)]*)\)/g)].map((m) => m[1]);
+    assert.ok(calls.length > 0, "extractConsentRecords の呼び出しが無い");
+    for (const args of calls) {
+        assert.ok(
+            args.includes(","),
+            `extractConsentRecords(${args}) が世帯を渡していない`,
+        );
+        assert.match(
+            args,
+            /CONSENT_SUBJECT|HOUSEHOLD_ID/,
+            `extractConsentRecords(${args}) が世帯以外のものを渡している`,
+        );
+    }
 });
