@@ -248,6 +248,24 @@
     html[data-direction="factual"] {
       --accent: #31556e; --accent-strong: #203f54; --accent-soft: #eaf0f4;
     }
+    /*
+     * ⚠️ 2026-08-27: **この定義が無かった。**
+     *
+     * 「やわらか標準」のボタンと説明文はあったが、`[data-direction="soft"]` の
+     * パレットが無く、選んでも色が変わらなかった（`:root` にフォールバックし、
+     * **プロトタイプ自身の画面色**がそのまま出ていた）。
+     *
+     * DISPLAY_DIRECTION_EVALUATION.md は soft を「推奨候補」としているが、
+     * **その配色は誰も書いていなかった。** 比べて選ぶための道具が、
+     * 肝心の案を描けていなかった。
+     *
+     * ここでは**フォールバックで実際に出ていた色を明示**する。
+     * 新しく考えた色ではない。**見て決め直すための出発点。**
+     */
+    html[data-direction="soft"] {
+      --accent: #24705a; --accent-strong: #165441; --accent-soft: #e9f5ef;
+    }
+
     html[data-direction="friendly"] {
       --accent: #b44f36; --accent-strong: #8f3927; --accent-soft: #fff0e9;
     }

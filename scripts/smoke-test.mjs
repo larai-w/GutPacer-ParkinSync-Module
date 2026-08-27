@@ -466,6 +466,27 @@ await test("Display prototype: 現行UIを含む4方向を静的データだけ�
     assert.match(prototype, /やわらか標準/);
     assert.match(prototype, /親しみ表示/);
     assert.doesNotMatch(prototype, /config\.js|fetch\s*\(/);
+
+    // ⚠️ 2026-08-27: **ここまではボタンと文言しか見ていなかった。**
+    // そのため `soft`（推奨候補）に `[data-direction="soft"]` の配色が
+    // **無い**ことに気づけなかった。選んでも色が変わらず、
+    // `:root`（プロトタイプ自身の画面色）がそのまま出ていた。
+    //
+    // `DISPLAY_DIRECTION_EVALUATION.md` は soft を推奨候補としているが、
+    // **その配色は誰も書いていなかった。**
+    // **比べて選ぶための道具が、肝心の案を描けていなかった。**
+    //
+    // ボタンがあることと、描けることは違う。
+    for (const direction of ["current", "factual", "soft", "friendly"]) {
+        const palette = new RegExp(
+            `html\\[data-direction="${direction}"\\][^{]*\\{[^}]*--accent`
+        );
+        assert.match(
+            prototype,
+            palette,
+            `${direction} に配色が無い。ボタンはあるが、選んでも見た目が変わらない`
+        );
+    }
 });
 
 await test("Beta preflight: BLOCKEDが1件でもあれば失敗終了する", async () => {
