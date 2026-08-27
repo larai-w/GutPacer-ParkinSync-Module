@@ -126,3 +126,69 @@ test("同じ関数を出すワークフローは、互いの名前を書いて�
     }
   }
 });
+
+test("旧実装を出すワークフローは自動で走らない", () => {
+  // **起動条件を絞るだけでは足りなかった。**
+  //
+  // 2026-08-27 に2回、本番を旧実装で上書きした:
+  //   1回目 paths が `backend/notifier/**` で、別の PR に反応した
+  //   2回目 paths を絞ったが、**ワークフロー自身**も paths に入っていたため、
+  //         「起動条件を直す PR」そのもので起動した
+  //
+  // 同じ関数を出すワークフローが複数あるなら、
+  // **本番で動いていないほうは自動で走らせない。**
+  const all = workflows().map((w) => ({
+    ...w,
+    functions: deployedFunctions(w.src),
+    paths: pushPaths(w.src),
+    packaged: packagedFiles(w.src),
+  }));
+
+  const byFunction = {};
+  for (const w of all) {
+    for (const fn of w.functions) (byFunction[fn] ||= []).push(w);
+  }
+
+  for (const [fn, group] of Object.entries(byFunction)) {
+    if (group.length < 2) continue;
+    const auto = group.filter((w) => w.paths.length > 0);
+    // ⚠️ 最初は「自動は1つまで」にしていたが、**それでは今日の1回目を捕まえられない。**
+    // 旧実装のほうが自動になっていても、自動は1つだから通ってしまった。
+    //
+    // **どちらが正なのかは機械には分からない。**
+    // 複数が同じ関数を出すなら、**どれも自動にしない**のが唯一安全な形。
+    // 出すときは、どちらを出すか人が選ぶ。
+    assert.equal(
+      auto.length,
+      0,
+      `${fn} を出すワークフローが ${group.length} つあるのに、` +
+        `${auto.length} つが自動で走る（${auto.map((w) => w.name).join(", ")}）。` +
+        `どちらが正か機械には分からない。後に走ったほうが勝ち、本番が上書きされる`
+    );
+  }
+});
+
+test("ワークフローが自分自身の変更で起動しない（同じ関数を複数が出す場合）", () => {
+  // 「起動条件を直す PR」で起動して本番を壊した、を繰り返さない。
+  const all = workflows().map((w) => ({
+    ...w,
+    functions: deployedFunctions(w.src),
+    paths: pushPaths(w.src),
+  }));
+  const shared = new Set();
+  const byFunction = {};
+  for (const w of all) for (const fn of w.functions) (byFunction[fn] ||= []).push(w.name);
+  for (const [, names] of Object.entries(byFunction)) {
+    if (names.length > 1) names.forEach((n) => shared.add(n));
+  }
+
+  for (const w of all) {
+    if (!shared.has(w.name)) continue;
+    const selfPath = `.github/workflows/${w.name}`;
+    assert.ok(
+      !w.paths.includes(selfPath),
+      `${w.name} が自分自身を paths に入れている。` +
+        `起動条件を直す PR そのもので起動し、本番を上書きする（2026-08-27 に発生）`
+    );
+  }
+});
