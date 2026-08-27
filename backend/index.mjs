@@ -197,7 +197,14 @@ async function isLockedOut(sourceIp) {
     }
 }
 
-/** 失敗を1つ数える。**失敗しても認証の判定は変えない。** */
+/**
+ * 失敗を1つ数える。**失敗しても認証の判定は変えない。**
+ *
+ * ⚠️ **`expiresAt` は DynamoDB の TTL 属性。** このテーブルには
+ * **同意記録も入っている**（監査記録なので絶対に消してはいけない）。
+ * 同意記録にトップレベルの `expiresAt` を付けると、**TTL が消す。**
+ * 同意の有効期限は `record.expiresAt`（入れ子）に置くこと。
+ */
 async function recordFailedAttempt(sourceIp) {
     try {
         const expiresAt = Math.floor(Date.now() / 1000) + LOCKOUT_SECONDS;

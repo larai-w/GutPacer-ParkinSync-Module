@@ -107,3 +107,40 @@ test("締め出しの失敗を黙って捨てない", () => {
     assert.ok(SRC.includes(marker), `${marker} のログが無い`);
   }
 });
+
+test("同意記録にトップレベルの expiresAt を付けない", async () => {
+  // ⚠️ **`gutpacer-settings` には同意記録と失敗カウンタが同居している。**
+  // 失敗カウンタを消すために TTL（`expiresAt`）を使うので、
+  // 同意記録が同じ属性を持つと**監査記録が黙って消える。**
+  //
+  // 同意記録は撤回後も残す（COMP-01）。消えてはいけない。
+  // 有効期限は `record.expiresAt`（入れ子）に置く。
+  const consent = await import("../backend/consent.mjs");
+  const rec = consent.buildGrantRecord(
+    {
+      consentType: "basic",
+      consentId: "test-id",
+      userId: "household:test",
+      source: "app_ui",
+    },
+    new Date("2026-08-27T00:00:00Z")
+  );
+  assert.ok(rec, "同意記録が作れない");
+
+  // 同意記録は `record` の中に閉じ込め、**item のトップレベルには出さない**。
+  // 保存時の形は { settingKey, record, updatedAt }。
+  const src = readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), "..", "backend", "index.mjs"),
+    "utf8"
+  );
+  const putBlock = src.slice(src.indexOf("async function putConsentRecord"), src.indexOf("async function putConsentRecord") + 700);
+  assert.ok(
+    !/^\s*expiresAt:/m.test(putBlock),
+    "同意の保存でトップレベルに expiresAt を置いている。**TTL が監査記録を消す**"
+  );
+
+  // 有効期限を持つなら record の中（入れ子）に置く
+  if ("expiresAt" in rec) {
+    assert.ok(true, "record の中にあるのは正しい（TTL は見ない）");
+  }
+});
