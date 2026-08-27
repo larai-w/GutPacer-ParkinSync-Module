@@ -149,9 +149,16 @@ await test("MVP API: 誤った招待コードは403でプロフィールを作�
     assert.equal(db.calls.some((call) => call.name === "PutCommand"), false);
 });
 
-await test("MVP API: GET は検証済みuserIdだけでQueryする", async () => {
+await test("MVP API: GET は本人の世帯だけでQueryする", async () => {
+    // 2026-08-27（issue #3）: 記録を分ける単位を**個人から世帯へ**変えた。
+    // LINE の userId は「誰か」を確かめるためのもので、
+    // 「誰の記録か」を分ける単位ではない。招待された2人目の介護者が
+    // 同じ家の記録を見られる必要がある（#4）。
+    //
+    // **守っている性質は変わらない**: 本文の値を信用せず、
+    // **検証済みの身元から辿った**世帯だけを使う。
     const db = createFakeDb({
-        GetCommand: () => ({ Item: { userId: "U-verified", location: "home" } }),
+        GetCommand: () => ({ Item: { userId: "U-verified", householdId: "household:test", location: "home" } }),
         QueryCommand: () => ({
             Items: [
                 { userId: "U-verified", fullDate: "2026-07-15" },
@@ -163,13 +170,14 @@ await test("MVP API: GET は検証済みuserIdだけでQueryする", async () =>
     const res = await handler({ requestContext: { http: { method: "GET" } }, headers: {} });
     assert.equal(res.statusCode, 200);
     const query = db.calls.find((call) => call.name === "QueryCommand");
-    assert.equal(query.input.ExpressionAttributeValues[":userId"], "U-verified");
+    assert.equal(query.input.ExpressionAttributeValues[":userId"], "household:test",
+        "個人の userId で引いている。世帯で引かないと PIN 経路と記録が割れる");
     assert.deepEqual(JSON.parse(res.body).logs.map((log) => log.fullDate), ["2026-07-16", "2026-07-15"]);
 });
 
-await test("MVP API: POST は本文のuserIdを信用せず検証済みuserIdで保存する", async () => {
+await test("MVP API: POST は本文のuserIdを信用せず、本人の世帯で保存する", async () => {
     const db = createFakeDb({
-        GetCommand: () => ({ Item: { userId: "U-verified", location: "home" } }),
+        GetCommand: () => ({ Item: { userId: "U-verified", householdId: "household:test", location: "home" } }),
         PutCommand: () => ({})
     });
     const handler = authedMvpHandler("U-verified", db);
@@ -180,13 +188,17 @@ await test("MVP API: POST は本文のuserIdを信用せず検証済みuserIdで
     });
     assert.equal(res.statusCode, 200);
     const put = db.calls.find((call) => call.name === "PutCommand" && call.input.TableName === "gutpacer-logs-v2");
-    assert.equal(put.input.Item.userId, "U-verified");
+    assert.equal(put.input.Item.userId, "household:test",
+        "本文の userId が通っている、または個人キーで書いている");
+    assert.notEqual(put.input.Item.userId, "U-attacker", "本文の userId を信用している");
     assert.equal(put.input.Item.fullDate, "2026-07-16");
 });
 
-await test("MVP API: DELETE は検証済みuserIdとfullDateをキーにする", async () => {
+await test("MVP API: DELETE は読み書きと同じ世帯キーで消す", async () => {
+    // **ここだけ個人キーのままだと、書いた記録が一件も消せない。**
+    // 撤回が成立しなくなる（COMP-01 C-05）。実際に一度そうなった。
     const db = createFakeDb({
-        GetCommand: () => ({ Item: { userId: "U-verified", location: "home" } }),
+        GetCommand: () => ({ Item: { userId: "U-verified", householdId: "household:test", location: "home" } }),
         DeleteCommand: () => ({})
     });
     const handler = authedMvpHandler("U-verified", db);
@@ -197,7 +209,8 @@ await test("MVP API: DELETE は検証済みuserIdとfullDateをキーにする",
     });
     assert.equal(res.statusCode, 200);
     const del = db.calls.find((call) => call.name === "DeleteCommand");
-    assert.deepEqual(del.input.Key, { userId: "U-verified", fullDate: "2026-07-16" });
+    assert.deepEqual(del.input.Key, { userId: "household:test", fullDate: "2026-07-16" },
+        "読み書きと削除でキーが揃っていない。書いた記録が消せない");
 });
 
 await test("MVP API: care-event/v1 export は認証済み世帯のQuery結果だけを返す", async () => {

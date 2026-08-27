@@ -1,5 +1,5 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, PutCommand, ScanCommand, DeleteCommand, GetCommand, BatchWriteCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, PutCommand, QueryCommand, ScanCommand, DeleteCommand, GetCommand, BatchWriteCommand } from "@aws-sdk/lib-dynamodb";
 import { randomUUID } from "node:crypto";
 import {
     CONSENT_SETTING_PREFIX,
@@ -16,7 +16,19 @@ import {
 
 const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
-const TABLE_NAME = "gutpacer-logs";
+// ⚠️ 2026-08-27: `gutpacer-logs` から移行した（issue #3）。
+// 旧テーブルは `fullDate` だけがキーで、**世帯が増えると同じ日付が上書きされた**。
+// 読み出しも全件 Scan で、**全員が全員の記録を見る**形だった。
+// 記録が2つのテーブルに割れていたのも同じ根（`gutpacer-mvp-dev` は v2 へ書いていた）。
+const TABLE_NAME = "gutpacer-logs-v2";
+
+// 記録を分ける単位は**世帯**であって個人ではない。
+// issue #4 で「招待された介護者」がサインインする予定なので、
+// 個人の userId をキーにすると**同じ家の2人目が記録を見られない**。
+// 同意記録も同じ主体で保存している（値を揃えること）。
+const HOUSEHOLD_ID = process.env.HOUSEHOLD_ID
+    || process.env.CONSENT_SUBJECT
+    || "household:gutpacer-default";
 const SETTINGS_TABLE = "gutpacer-settings";
 
 // ── 初期化のうちに DynamoDB へ一度つないでおく ────────────────────────
@@ -125,13 +137,18 @@ export function validateDeleteAllRequest(body) {
 // Scan の結果を BatchWrite の 25件チャンクへ割る。AWS を呼ばずに検算できる
 // よう切り出す。キーは fullDate（gutpacer-logs のパーティションキー）。
 export function buildDeleteAllBatches(items, chunkSize = 25) {
+    // 複合キーになったので、**両方揃っている item だけ**を対象にする。
+    // 片方でも欠けたキーを渡すと DynamoDB が例外を投げ、
+    // **その batch ごと消えずに終わる**（消えたつもりで残る）。
     const keys = (items || [])
-        .map((item) => item?.fullDate)
-        .filter((fullDate) => typeof fullDate === "string" && fullDate.length > 0);
+        .map((item) => ({ userId: item?.userId, fullDate: item?.fullDate }))
+        .filter(({ userId, fullDate }) =>
+            typeof userId === "string" && userId.length > 0
+            && typeof fullDate === "string" && fullDate.length > 0);
     const batches = [];
     for (let i = 0; i < keys.length; i += chunkSize) {
-        batches.push(keys.slice(i, i + chunkSize).map((fullDate) => ({
-            DeleteRequest: { Key: { fullDate } }
+        batches.push(keys.slice(i, i + chunkSize).map(({ userId, fullDate }) => ({
+            DeleteRequest: { Key: { userId, fullDate } }
         })));
     }
     return batches;
@@ -141,7 +158,9 @@ export function buildDeleteAllBatches(items, chunkSize = 25) {
 // 同意の主体。この運用は単一世帯・共有PINなので、世帯を1件として扱う。
 // **固定文字列に落とさない**（将来 LINE ログイン版で個人が分かれたときに
 // 別人の同意が混ざらないよう、環境変数で分けられる形にしておく）。
-const CONSENT_SUBJECT = process.env.CONSENT_SUBJECT || "household:gutpacer-default";
+// 同意の主体は世帯。**記録のキーと同じ値を使う。**
+// 別々に持つと、同意の対象と記録の対象がずれる。
+const CONSENT_SUBJECT = HOUSEHOLD_ID;
 
 async function listConsentRecords() {
     // このテーブルは単一世帯用で数アイテムしかないので Scan で読む。
@@ -167,7 +186,14 @@ async function getConsentState() {
 }
 
 async function deleteAllLogs() {
-    const result = await docClient.send(new ScanCommand({ TableName: TABLE_NAME }));
+    // ⚠️ **ここが一番危ない。** Scan のままだと、世帯が増えたときに
+    // **他所帯の記録まで消す**。削除は必ず自分の世帯の範囲に閉じる。
+    const result = await docClient.send(new QueryCommand({
+        TableName: TABLE_NAME,
+        KeyConditionExpression: "#u = :household",
+        ExpressionAttributeNames: { "#u": "userId" },
+        ExpressionAttributeValues: { ":household": HOUSEHOLD_ID }
+    }));
     const items = result.Items || [];
     const batches = buildDeleteAllBatches(items);
 
@@ -306,12 +332,22 @@ export const handler = async (event) => {
             if (!body.fullDate) {
                 return { statusCode: 400, headers, body: JSON.stringify({ error: "fullDate required" }) };
             }
-            await docClient.send(new PutCommand({ TableName: TABLE_NAME, Item: body }));
+            // **世帯を必ず載せる。** 抜けると、キーの無い item ができて読めなくなる。
+            await docClient.send(new PutCommand({
+                TableName: TABLE_NAME,
+                Item: { ...body, userId: HOUSEHOLD_ID }
+            }));
             return { statusCode: 200, headers, body: JSON.stringify({ message: "Saved" }) };
         }
 
         if (method === "GET") {
-            const result = await docClient.send(new ScanCommand({ TableName: TABLE_NAME }));
+            // **Scan ではなく Query。** 世帯で絞らないと、他所帯の記録が混ざる。
+            const result = await docClient.send(new QueryCommand({
+                TableName: TABLE_NAME,
+                KeyConditionExpression: "#u = :household",
+                ExpressionAttributeNames: { "#u": "userId" },
+                ExpressionAttributeValues: { ":household": HOUSEHOLD_ID }
+            }));
             const logs = (result.Items || []).sort((a, b) => new Date(b.fullDate) - new Date(a.fullDate));
 
             let location = "home";
@@ -333,7 +369,10 @@ export const handler = async (event) => {
             if (!fullDate) {
                 return { statusCode: 400, headers, body: JSON.stringify({ error: "fullDate required" }) };
             }
-            await docClient.send(new DeleteCommand({ TableName: TABLE_NAME, Key: { fullDate } }));
+            await docClient.send(new DeleteCommand({
+                TableName: TABLE_NAME,
+                Key: { userId: HOUSEHOLD_ID, fullDate }
+            }));
             return { statusCode: 200, headers, body: JSON.stringify({ message: "Deleted" }) };
         }
 

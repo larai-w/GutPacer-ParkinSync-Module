@@ -10,7 +10,7 @@ import {
 } from "@aws-sdk/lib-dynamodb";
 import { createHash, timingSafeEqual } from "node:crypto";
 import { getLineIdToken, verifyLineIdToken } from "./line-auth.mjs";
-import { createDefaultProfile } from "./profile-defaults.mjs";
+import { createDefaultProfile, defaultHouseholdId } from "./profile-defaults.mjs";
 import { exportCareEvents } from "./care-event-export.mjs";
 
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
@@ -101,18 +101,23 @@ export function createHandler(dependencies = {}) {
                 inviteCode: getHeader(event, "X-Invite-Code")
             });
 
+            // 記録は**世帯**で引く。LINE の userId は「誰か」を確かめるためのもので、
+            // 「誰の記録か」を分ける単位ではない（issue #3）。
+            // これを個人のままにすると、PIN 経路（世帯キー）と記録が割れる。
+            const householdId = profile.householdId || defaultHouseholdId();
+
             if (method === "GET") {
                 const result = await db.send(new QueryCommand({
                     TableName: LOGS_TABLE,
                     KeyConditionExpression: "#userId = :userId",
                     ExpressionAttributeNames: { "#userId": "userId" },
-                    ExpressionAttributeValues: { ":userId": userId }
+                    ExpressionAttributeValues: { ":userId": householdId }
                 }));
                 const logs = (result.Items || []).sort((a, b) =>
                     new Date(b.fullDate) - new Date(a.fullDate)
                 );
                 if (event.queryStringParameters?.format === "care-event-v1") {
-                    return response(200, exportCareEvents(logs, userId, now()));
+                    return response(200, exportCareEvents(logs, householdId, now()));
                 }
                 return response(200, {
                     logs,
@@ -142,7 +147,9 @@ export function createHandler(dependencies = {}) {
                 const { userId: ignoredUserId, ...log } = body;
                 await db.send(new PutCommand({
                     TableName: LOGS_TABLE,
-                    Item: { ...log, userId }
+                    // **世帯で書く。** 読み出しも世帯で引くので、ここを個人のままにすると
+                    // 書いた本人にも読めなくなる。
+                    Item: { ...log, userId: householdId }
                 }));
                 return response(200, { message: "Saved" });
             }
@@ -152,7 +159,9 @@ export function createHandler(dependencies = {}) {
                 if (!fullDate) return response(400, { error: "fullDate required" });
                 await db.send(new DeleteCommand({
                     TableName: LOGS_TABLE,
-                    Key: { userId, fullDate }
+                    // **読み書きと同じキーで消す。** ここだけ個人のままだと、
+                    // 書いた記録が一件も消せなくなる（撤回が成立しない・COMP-01 C-05）。
+                    Key: { userId: householdId, fullDate }
                 }));
                 return response(200, { message: "Deleted" });
             }
