@@ -347,12 +347,20 @@ await test("Notifier: モジュールがロードでき handler が関数であ�
     assert.equal(typeof notifierModule.handler, "function");
 });
 
-await test("MVP Notifier: ユーザーごとのキーで記録を確認し個別送信する", async () => {
+await test("MVP Notifier: 記録は世帯で引き、送信は個人ごとに行う", async () => {
+    // 2026-08-27（issue #3）: 記録のキーを個人から**世帯**へ変えた。
+    //
+    // **2つを混ぜないこと。**
+    //   - 記録を引くキー → 世帯（同じ家の記録は誰が入れても同じ場所）
+    //   - LINE を送る宛先 → **個人**（誰のスマホに届くかは人ごと）
+    //
+    // ここを世帯のまま送ると、**全員に同じ通知が飛ぶ**。
+    // 記録を個人で引くと、**記録済みでも見つからず毎日リマインドが飛ぶ**。
     const db = createFakeDb({
         ScanCommand: () => ({
             Items: [
-                { userId: "U-one", location: "home", notify: { remindAfterDays: 1, warnAfterDays: 2 } },
-                { userId: "U-two", location: "facility", notify: { remindAfterDays: 1, warnAfterDays: 2 } }
+                { userId: "U-one", householdId: "household:one", location: "home", notify: { remindAfterDays: 1, warnAfterDays: 2 } },
+                { userId: "U-two", householdId: "household:two", location: "facility", notify: { remindAfterDays: 1, warnAfterDays: 2 } }
             ]
         }),
         GetCommand: () => ({})
@@ -365,10 +373,15 @@ await test("MVP Notifier: ユーザーごとのキーで記録を確認し個別
     });
     const res = await handler();
     assert.equal(res.statusCode, 200);
-    assert.deepEqual(sent, ["U-one"]);
+    // 送信先は個人のまま
+    assert.deepEqual(sent, ["U-one"], "送信先が個人でなくなっている");
     const gets = db.calls.filter((call) => call.name === "GetCommand");
     assert.ok(gets.length > 0);
-    assert.ok(gets.every((call) => call.input.Key.userId === "U-one"));
+    // 記録は世帯で引く
+    assert.ok(
+        gets.every((call) => call.input.Key.userId === "household:one"),
+        "記録を個人キーで引いている。記録済みでも見つからず毎日リマインドが飛ぶ"
+    );
 });
 
 await test("MVP Notifier: 1ユーザーの送信失敗後も他ユーザーを処理して失敗を通知する", async () => {
