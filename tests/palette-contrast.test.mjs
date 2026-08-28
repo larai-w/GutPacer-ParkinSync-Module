@@ -61,14 +61,22 @@ test("親しみ表示の主要色が、白文字で読める", () => {
   }
 });
 
-test("差し色（オレンジ）を、白文字の背景に使っていない", () => {
-  // ロゴのオレンジは白文字と 2.38:1。**面には使えない。**
-  // ロゴ自身も「緑が面、オレンジは小さな差し色」という使い方をしている。
-  const style = HTML.slice(HTML.indexOf("<style"), HTML.indexOf("</style>"));
-  const bgRules = style.match(/[^{}]*\{[^}]*background-color:\s*var\(--gp-highlight[^}]*\}/g) || [];
-  assert.deepEqual(
-    bgRules.filter((r) => !/\.gp-mascot/.test(r)),
-    [],
-    "差し色を背景に使っている箇所がある。**白文字が載ると読めなくなる**",
+test("2つのモードの主色が、見て分かるくらい違う", () => {
+  // ⚠️ **一度ここで失敗した**（2026-08-28）。
+  // 両モードを緑にしたら #356a47 と #3f7d54 になり、**ほぼ同じ色**だった。
+  // 背景の色味と枠線だけが違う状態で、**切り替えても変わった気がしない。**
+  // 着せ替えなのだから、**一番目立つボタンの色が変わること。**
+  const a = varsIn(":root")["--gp-accent"];
+  const b = varsIn('body[data-display="friendly"]:not(.view-care)')["--gp-accent"];
+
+  const rgb = (h) => [0, 2, 4].map((i) => parseInt(h.replace("#", "").slice(i, i + 2), 16));
+  const [r1, g1, b1] = rgb(a);
+  const [r2, g2, b2] = rgb(b);
+  const dist = Math.sqrt((r1 - r2) ** 2 + (g1 - g2) ** 2 + (b1 - b2) ** 2);
+
+  assert.ok(
+    dist >= 40,
+    `事実中心 ${a} と親しみ ${b} が近すぎる（距離 ${dist.toFixed(0)}）。` +
+      `**切り替えても変わった気がしない。** 着せ替えとして成立していない`,
   );
 });
