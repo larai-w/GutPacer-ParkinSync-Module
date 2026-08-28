@@ -8,7 +8,7 @@ import {
     UpdateContinuousBackupsCommand
 } from "@aws-sdk/client-dynamodb";
 
-const region = process.env.AWS_REGION || "us-east-1";
+const region = process.env.AWS_REGION || "ap-northeast-1";
 const logsTable = process.env.NEW_LOGS_TABLE || "gutpacer-logs-v2";
 const usersTable = process.env.NEW_USERS_TABLE || "gutpacer-users";
 const execute = process.argv.includes("--execute");

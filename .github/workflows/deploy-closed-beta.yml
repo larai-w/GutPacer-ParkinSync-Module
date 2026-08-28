@@ -60,7 +60,7 @@ jobs:
           aws lambda update-function-code \
             --function-name gutpacer-mvp-dev \
             --zip-file fileb://function.zip \
-            --region us-east-1
+            --region ap-northeast-1
 
   deploy-notifier:
     if: inputs.component == 'notifier'
@@ -84,4 +84,4 @@ jobs:
           aws lambda update-function-code \
             --function-name gutpacer-notifier \
             --zip-file fileb://function.zip \
-            --region us-east-1
+            --region ap-northeast-1
