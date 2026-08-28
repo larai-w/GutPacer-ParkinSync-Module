@@ -50,20 +50,26 @@
             --gp-accent-line: #f0cfc4;
         }
 
+        /* ⚠️ **var() には必ずフォールバックを置く。**
+         * 変数が解決できないと、その宣言は「無効」として捨てられ、
+         * background-color は **transparent** になる。
+         * このボタン群は文字が白なので、**白背景に白文字＝消えたように見える**
+         * （2026-08-28、保存ボタンと選択中の調子ボタンが見えないと報告があった）。
+         * フォールバックは元の Tailwind indigo の値。**最低でも元の見た目に戻る。** */
         body .text-indigo-600,
-        body .text-indigo-400 { color: var(--gp-accent); }
+        body .text-indigo-400 { color: var(--gp-accent, #4f46e5); }
         body .text-indigo-700,
         body .text-indigo-800,
-        body .text-indigo-950 { color: var(--gp-accent-strong); }
+        body .text-indigo-950 { color: var(--gp-accent-strong, #312e81); }
         body .bg-indigo-600,
-        body .bg-indigo-500 { background-color: var(--gp-accent); }
-        body .bg-indigo-50 { background-color: var(--gp-accent-soft); }
-        body .hover\:bg-indigo-700:hover { background-color: var(--gp-accent-strong); }
-        body .border-indigo-600 { border-color: var(--gp-accent); }
-        body .border-indigo-200 { border-color: var(--gp-accent-line); }
-        body .focus\:border-indigo-500:focus { border-color: var(--gp-accent); }
-        body .ring-indigo-500 { --tw-ring-color: var(--gp-accent); }
-        body .to-indigo-800 { --tw-gradient-to: var(--gp-accent-strong); }
+        body .bg-indigo-500 { background-color: var(--gp-accent, #4f46e5); }
+        body .bg-indigo-50 { background-color: var(--gp-accent-soft, #eef2ff); }
+        body .hover\:bg-indigo-700:hover { background-color: var(--gp-accent-strong, #4338ca); }
+        body .border-indigo-600 { border-color: var(--gp-accent, #4f46e5); }
+        body .border-indigo-200 { border-color: var(--gp-accent-line, #c7d2fe); }
+        body .focus\:border-indigo-500:focus { border-color: var(--gp-accent, #6366f1); }
+        body .ring-indigo-500 { --tw-ring-color: var(--gp-accent, #6366f1); }
+        body .to-indigo-800 { --tw-gradient-to: var(--gp-accent-strong, #3730a3); }
 
         /* ===== 事業所閲覧モード ===== */
         /* .view-care が body に付いているとき入力系を非表示にする */
