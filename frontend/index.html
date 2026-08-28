@@ -523,7 +523,30 @@
         }
 
         // ===== 事業所閲覧モード切替 =====
+        // ⚠️ **localStorage ではなく sessionStorage に置く。**
+        // 以前は localStorage だったため、**家族の端末で一度でも
+        // ?view=care を開くと、閉じても戻らなかった。**
+        // 閲覧モードでは入力欄と保存ボタンが全部消えるので、
+        // 「記録できない」という形で現れる（2026-08-28 にオーナーが遭遇）。
+        // sessionStorage なら**タブを閉じれば家族表示に戻る。**
+        // 事業所の方はリンク（?view=care）から開くので支障は無い。
         const CARE_VIEW_KEY = 'GUTPACER_VIEW';
+
+        /** 保存先。読めない環境（プライベートウィンドウ等）でも落とさない。 */
+        const viewStore = {
+            get() {
+                try { return window.sessionStorage.getItem(CARE_VIEW_KEY); } catch { return null; }
+            },
+            set(v) {
+                try { window.sessionStorage.setItem(CARE_VIEW_KEY, v); } catch { /* 表示だけの設定 */ }
+            },
+            clear() {
+                try { window.sessionStorage.removeItem(CARE_VIEW_KEY); } catch { /* 同上 */ }
+                // 以前 localStorage に残っている値も消す（移行）。
+                // **消さないと、古い値で閲覧モードに入り続ける。**
+                try { window.localStorage.removeItem(CARE_VIEW_KEY); } catch { /* 同上 */ }
+            },
+        };
 
         function applyViewMode(mode) {
             if (mode === 'care') {
@@ -537,20 +560,25 @@
             const params = new URLSearchParams(window.location.search);
             const viewParam = params.get('view');
             if (viewParam === 'care') {
-                localStorage.setItem(CARE_VIEW_KEY, 'care');
+                viewStore.set('care');
                 applyViewMode('care');
             } else if (viewParam === 'family') {
-                localStorage.removeItem(CARE_VIEW_KEY);
+                viewStore.clear();
                 applyViewMode('family');
             } else {
-                // クエリなし: localStorageを参照
-                const stored = localStorage.getItem(CARE_VIEW_KEY);
+                // クエリなし: このセッションの指定だけを見る。
+                // **端末に残った古い指定は引き継がない。**
+                const stored = viewStore.get();
+                if (window.localStorage && window.localStorage.getItem(CARE_VIEW_KEY)) {
+                    // 旧版が localStorage に書いた値の後始末（一度だけ）
+                    try { window.localStorage.removeItem(CARE_VIEW_KEY); } catch { /* noop */ }
+                }
                 applyViewMode(stored === 'care' ? 'care' : 'family');
             }
         }
 
         function switchToFamilyView() {
-            localStorage.removeItem(CARE_VIEW_KEY);
+            viewStore.clear();
             applyViewMode('family');
         }
 
