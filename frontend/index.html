@@ -29,11 +29,21 @@
          * プロトタイプに配色が無く**誰も見ないまま選ばれていた**。
          * 描いて見せたら選ばれなかった。
          */
+        /* 配色はロゴから取る。**ロゴは #3f7d54（緑）と #e8961e（オレンジ）。**
+         * 以前は事実中心が青(#31556e)、親しみが赤茶(#b44f36)で、
+         * **どちらもロゴから来ていなかった。** 特に親しみは緑のロゴと
+         * 赤茶の画面がぶつかっていた（2026-08-28 オーナー指摘）。
+         *
+         * ⚠️ **オレンジは白文字の背景に使えない**（白との比 2.38:1、AA は 4.5:1）。
+         * 濃くすると茶色になり、元の赤茶と同じ問題に戻る。
+         * ロゴ自身が「緑が面、オレンジは小さな差し色」なので、その関係を写す。 */
         :root {
-            --gp-accent: #31556e;
-            --gp-accent-strong: #203f54;
-            --gp-accent-soft: #eaf0f4;
-            --gp-accent-line: #c9d6e0;
+            /* 事実中心: 深めの緑。白文字で 6.36:1 */
+            --gp-accent: #356a47;
+            --gp-accent-strong: #2a5439;   /* 8.66:1 */
+            --gp-accent-soft: #eaf7e6;     /* ロゴの背景色 */
+            --gp-accent-line: #cfeccb;     /* ロゴの背景色（濃いほう） */
+            --gp-highlight: transparent;   /* 差し色は親しみ表示のときだけ */
         }
 
         /* 親しみ表示は**家族の入力画面だけ**。既定はオフ。
@@ -44,10 +54,19 @@
          * 「記録できましたね」までで、「今日は良いですね」は超えている。
          * 体調が悪い日に画面から評価されるのは、続ける力を削る。 */
         body[data-display="friendly"]:not(.view-care) {
-            --gp-accent: #b44f36;
-            --gp-accent-strong: #8f3927;
-            --gp-accent-soft: #fff0e9;
-            --gp-accent-line: #f0cfc4;
+            /* 親しみ: ロゴの緑をそのまま。白文字で 4.91:1 */
+            --gp-accent: #3f7d54;
+            --gp-accent-strong: #2f5f40;   /* 7.42:1 */
+            --gp-accent-soft: #fdf3e3;     /* 温かいクリーム */
+            --gp-accent-line: #f0d9ae;
+            /* ロゴのオレンジ。**差し色専用。白文字を載せない。** */
+            --gp-highlight: #e8961e;
+        }
+
+        /* マスコットに差し色を効かせる（親しみ表示のときだけ色が付く） */
+        body[data-display="friendly"]:not(.view-care) .gp-mascot {
+            border-color: var(--gp-highlight, #cfeccb);
+            background-color: var(--gp-accent-soft, #ffffff);
         }
 
         /* ⚠️ **var() には必ずフォールバックを置く。**
@@ -57,19 +76,19 @@
          * （2026-08-28、保存ボタンと選択中の調子ボタンが見えないと報告があった）。
          * フォールバックは元の Tailwind indigo の値。**最低でも元の見た目に戻る。** */
         body .text-indigo-600,
-        body .text-indigo-400 { color: var(--gp-accent, #4f46e5); }
+        body .text-indigo-400 { color: var(--gp-accent, #356a47); }
         body .text-indigo-700,
         body .text-indigo-800,
-        body .text-indigo-950 { color: var(--gp-accent-strong, #312e81); }
+        body .text-indigo-950 { color: var(--gp-accent-strong, #2a5439); }
         body .bg-indigo-600,
-        body .bg-indigo-500 { background-color: var(--gp-accent, #4f46e5); }
-        body .bg-indigo-50 { background-color: var(--gp-accent-soft, #eef2ff); }
-        body .hover\:bg-indigo-700:hover { background-color: var(--gp-accent-strong, #4338ca); }
-        body .border-indigo-600 { border-color: var(--gp-accent, #4f46e5); }
-        body .border-indigo-200 { border-color: var(--gp-accent-line, #c7d2fe); }
-        body .focus\:border-indigo-500:focus { border-color: var(--gp-accent, #6366f1); }
-        body .ring-indigo-500 { --tw-ring-color: var(--gp-accent, #6366f1); }
-        body .to-indigo-800 { --tw-gradient-to: var(--gp-accent-strong, #3730a3); }
+        body .bg-indigo-500 { background-color: var(--gp-accent, #356a47); }
+        body .bg-indigo-50 { background-color: var(--gp-accent-soft, #eaf7e6); }
+        body .hover\:bg-indigo-700:hover { background-color: var(--gp-accent-strong, #2a5439); }
+        body .border-indigo-600 { border-color: var(--gp-accent, #356a47); }
+        body .border-indigo-200 { border-color: var(--gp-accent-line, #cfeccb); }
+        body .focus\:border-indigo-500:focus { border-color: var(--gp-accent, #356a47); }
+        body .ring-indigo-500 { --tw-ring-color: var(--gp-accent, #356a47); }
+        body .to-indigo-800 { --tw-gradient-to: var(--gp-accent-strong, #2a5439); }
 
         /* ===== 事業所閲覧モード ===== */
         /* .view-care が body に付いているとき入力系を非表示にする */
@@ -1253,7 +1272,7 @@
                 <p style="font-size: 11px; color: #64748b; margin: 0 0 20px;">作成日時: ${generatedAt} ／ Module of ParkinSync</p>
                 <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
                     <thead>
-                        <tr style="background: #eef2ff; text-align: left;">
+                        <tr style="background: #eaf7e6; text-align: left;">
                             <th style="padding: 8px;">日付</th>
                             <th style="padding: 8px;">調子</th>
                             <th style="padding: 8px;">排便</th>
