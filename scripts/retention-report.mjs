@@ -23,7 +23,7 @@ import { fileURLToPath } from "node:url";
 
 // --- 設定 ---
 const LOGS_TABLE = process.env.NEW_LOGS_TABLE || "gutpacer-logs-v2";
-const region = process.env.AWS_REGION || "us-east-1";
+const region = process.env.AWS_REGION || "ap-northeast-1";
 const WEEKS = parseInt(process.env.WEEKS || "4", 10);
 const MIN_DAYS_PER_WEEK = 3;  // 継続とみなす閾値: 週あたりの最低記録日数
 

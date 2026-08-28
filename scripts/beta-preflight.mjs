@@ -13,11 +13,11 @@ import { spawnSync } from "node:child_process";
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-const REGION = process.env.GUTPACER_AWS_REGION || "us-east-1";
+const REGION = process.env.GUTPACER_AWS_REGION || "ap-northeast-1";
 const PRODUCTION_URL = process.env.GUTPACER_PRODUCTION_URL || "https://veai.jp/gutpacer/";
 const BETA_URL = process.env.GUTPACER_BETA_URL || "https://veai.jp/gutpacer/dev/";
 const BETA_API_URL = process.env.GUTPACER_BETA_API_URL ||
-    "https://3cxmfovepd6mwir4a5jxwtotf40ojdia.lambda-url.us-east-1.on.aws/";
+    "https://j5tpq3dg665xdb6xuf6m6o2ene0yfmpj.lambda-url.ap-northeast-1.on.aws/";
 
 const RESULTS = [];
 

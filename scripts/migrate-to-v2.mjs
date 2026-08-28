@@ -17,7 +17,7 @@ const NEW_LOGS_TABLE = process.env.NEW_LOGS_TABLE || "gutpacer-logs-v2";
 const NEW_USERS_TABLE = process.env.NEW_USERS_TABLE || "gutpacer-users";
 const userId = process.env.MIGRATION_USER_ID;
 const execute = process.argv.includes("--execute");
-const region = process.env.AWS_REGION || "us-east-1";
+const region = process.env.AWS_REGION || "ap-northeast-1";
 
 if (!userId) {
     console.error("MIGRATION_USER_ID is required");

@@ -42,12 +42,13 @@ if (!new RegExp(`^${METRICS_TABLE_BASE}-[a-z0-9][a-z0-9-]*$`).test(TABLE_NAME)) 
   process.exit(2);
 }
 
-// 既定は us-east-1。GutPacer の既存テーブル(gutpacer-logs / gutpacer-settings)が
-// us-east-1 にあり、別リージョンに作ると Lambda から書けない (F-05)。
+// 既定は ap-northeast-1。GutPacer のテーブルが ap-northeast-1 にあり、
+// 別リージョンに作ると Lambda から書けない (F-05)。
+// 2026-08-28 に us-east-1 から移設した。
 const REGION_INDEX = process.argv.indexOf('--region');
 const REGION = REGION_INDEX >= 0
   ? process.argv[REGION_INDEX + 1]
-  : (process.env.AWS_REGION || 'us-east-1');
+  : (process.env.AWS_REGION || 'ap-northeast-1');
 
 // ガードが正しく拒否することを確認するために、実際にテーブルを作る必要はない。
 // --dry-run は全チェックを通したうえで AWS 呼び出しの直前で止まる。
