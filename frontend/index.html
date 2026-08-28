@@ -81,6 +81,16 @@
         body:not(.view-care) .care-only { display: none; }
         body.view-care .family-only { display: none; }
 
+        /* 親しみ表示のマスコット。
+         * **家族の入力画面だけに出す。**
+         *   - 事業所閲覧（.view-care）には出さない
+         *   - PDF は書き出し前に data-display を factual へ戻すので自然に外れる
+         *
+         * ⚠️ **記録の結果を評価しない。** 「今日は良いですね」は超えている。
+         * 出すのは記録の**前**の声かけまで（#42 の判断）。 */
+        .gp-mascot { display: none; }
+        body[data-display="friendly"]:not(.view-care) .gp-mascot { display: flex; }
+
         /* 閲覧モードのバナー */
         #careViewBanner {
             display: none;
@@ -132,6 +142,14 @@
                 <span class="text-slate-600 text-xs animate-pulse">データを読み込み中...</span>
             </div>
         </section>
+
+        <div class="gp-mascot js-input-only items-center gap-3 bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+            <div aria-hidden="true" class="text-3xl leading-none">💩</div>
+            <div class="text-left">
+                <strong class="block text-sm font-bold text-slate-800">きょうの記録をつけよう</strong>
+                <span class="text-xs text-slate-600">記録する項目と保存される内容は、標準表示と同じです。</span>
+            </div>
+        </div>
 
         <section class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-4 js-input-only">
             <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
