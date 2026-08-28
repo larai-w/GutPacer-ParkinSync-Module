@@ -19,7 +19,18 @@ const HTML = readFileSync(
 
 test("既定は事実中心（親しみ表示ではない）", () => {
   // `:root` に既定の配色があり、friendly は別セレクタで上書きする形。
-  assert.match(HTML, /:root\s*\{[^}]*--gp-accent:\s*#31556e/, "既定の配色が事実中心でない");
+  //
+  // ⚠️ ここは以前 `#31556e` と**色コードを直書き**していた。
+  // 2026-08-28 にロゴ基準の配色へ変えたとき、**何も壊れていないのに落ちた。**
+  // 守りたいのは「既定が :root にあり、friendly が上書きする形」であって、
+  // **特定の色ではない。** 色は変わる。構造で見る。
+  const root = HTML.match(/:root\s*\{[^}]*\}/);
+  assert.ok(root, ":root に既定の配色が無い");
+  assert.match(root[0], /--gp-accent:\s*#[0-9a-f]{6}/i, ":root に --gp-accent が無い");
+  assert.ok(
+    !/data-display="friendly"/.test(root[0]),
+    "既定の :root が親しみ表示になっている",
+  );
   assert.match(
     HTML,
     /body\[data-display="friendly"\]/,
