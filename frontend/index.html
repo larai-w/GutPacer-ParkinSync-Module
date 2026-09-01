@@ -181,6 +181,16 @@
             <div class="space-y-2">
                 <label class="text-xs font-bold text-slate-500 uppercase tracking-wider block">日にち</label>
                 <input type="date" id="logDate" class="w-full bg-slate-50 border-2 border-slate-200 rounded-xl py-3 px-3 font-bold text-slate-700 focus:border-indigo-500 focus:outline-none transition-all">
+                <!-- 前日の記録は「あとで思い出して入れる」ことが多いのに、
+                     素の date ピッカーだと数タップかかっていた（2026-09-01 オーナー指摘）。 -->
+                <div class="grid grid-cols-2 gap-2">
+                    <button type="button" onclick="shiftLogDate(-1)" class="min-h-11 border-2 border-slate-200 rounded-xl py-2.5 text-center font-bold text-slate-600 bg-white active:scale-95 transition-all text-sm">
+                        <i class="fa-solid fa-chevron-left"></i> 前の日
+                    </button>
+                    <button type="button" onclick="setLogDateToday()" class="min-h-11 border-2 border-slate-200 rounded-xl py-2.5 text-center font-bold text-slate-600 bg-white active:scale-95 transition-all text-sm">
+                        今日にする
+                    </button>
+                </div>
             </div>
 
             <div class="space-y-2">
@@ -213,12 +223,20 @@
 
             <div class="space-y-2">
                 <label class="text-xs font-bold text-slate-500 uppercase tracking-wider block">状態</label>
+                <!-- ⚠️ ここは「形」だけを聞く。出しやすさは別項目（stoolDifficult）。
+                     以前は「普通（バナナ状・するっと）」と書いていたが、
+                     バナナ状でもいきんで時間がかかることはある（2026-09-01 オーナー指摘）。
+                     value は保存値なので変えない。過去データとの比較が壊れる。 -->
                 <select id="stoolType" class="w-full bg-slate-50 border-2 border-slate-200 rounded-xl py-3 px-3 font-bold text-slate-700 focus:border-indigo-500 focus:outline-none transition-all">
                     <option value="硬い（コロコロ）">硬い（コロコロ・カチカチ）</option>
                     <option value="柔らかい（軟便）">柔らかい（ドロドロ・軟便）</option>
                     <option value="水っぽい（下痢）">水っぽい（下痢）</option>
-                    <option value="普通（バナナ状）">普通（バナナ状・するっと）</option>
+                    <option value="普通（バナナ状）">普通（バナナ状）</option>
                 </select>
+                <label class="flex items-center justify-between p-3.5 bg-slate-50 rounded-xl border-2 border-slate-200 cursor-pointer active:bg-slate-100 transition-all select-none mt-2">
+                    <span class="font-bold text-slate-700 text-xs">出にくかった（いきみ・時間がかかった）</span>
+                    <input type="checkbox" id="stoolDifficult" class="w-5 h-5 border-slate-300 text-indigo-600 focus:ring-indigo-500 rounded-md">
+                </label>
             </div>
 
             <div class="space-y-2 pt-2 border-t border-slate-100">
@@ -1043,7 +1061,11 @@
                 fullDate: rawDate,
                 condition: selectedConditionValue,
                 hasStool: hasStool,
-                bowel: hasStool ? { amount: selectedAmountValue, type: document.getElementById('stoolType').value } : null,
+                bowel: hasStool ? {
+                    amount: selectedAmountValue,
+                    type: document.getElementById('stoolType').value,
+                    difficult: document.getElementById('stoolDifficult').checked
+                } : null,
                 enema: isEnema,
                 manualHelp: isManual,
                 meds: {
@@ -1111,6 +1133,8 @@
                     if (btn.textContent.trim() === log.bowel.amount) selectAmount(log.bowel.amount, btn);
                 });
                 document.getElementById('stoolType').value = log.bowel.type;
+                // 古い記録には difficult が無い。**「出にくかった」を既定にしない。**
+                document.getElementById('stoolDifficult').checked = log.bowel.difficult === true;
             }
 
             document.getElementById('careEnema').checked = log.enema || false;
@@ -1166,7 +1190,9 @@
                     <div class="flex flex-wrap gap-1.5 text-xs">`;
                 
                 if (log.hasStool) {
-                    html += `<span class="bg-amber-100 text-amber-800 font-bold px-2.5 py-1 rounded-sm">💩 便: あり [${escapeHtml(log.bowel.amount)}・${escapeHtml(log.bowel.type)}]</span>`;
+                    const bowelDetail = escapeHtml(log.bowel.amount) + '・' + escapeHtml(log.bowel.type)
+                        + (log.bowel.difficult === true ? '・出にくい' : '');
+                    html += `<span class="bg-amber-100 text-amber-800 font-bold px-2.5 py-1 rounded-sm">💩 便: あり [${bowelDetail}]</span>`;
                 } else {
                     html += `<span class="bg-slate-200 text-slate-700 px-2.5 py-1 rounded-sm">💩 便: なし</span>`;
                 }
@@ -1210,6 +1236,27 @@
             logHistoryList.innerHTML = html;
         }
 
+        // 日付を1日ずらす／今日に戻す。保存側は logDate.value を読むだけなので
+        // ここで値を書き換えれば足りる。
+        function toDateInputValue(d) {
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        }
+
+        function shiftLogDate(days) {
+            const input = document.getElementById('logDate');
+            // 値が空でも壊れないよう、空なら今日を起点にする。
+            const base = input.value ? new Date(`${input.value}T00:00:00`) : new Date();
+            base.setDate(base.getDate() + days);
+            input.value = toDateInputValue(base);
+        }
+
+        function setLogDateToday() {
+            document.getElementById('logDate').value = toDateInputValue(new Date());
+        }
+
         function resetForm() {
             const today = new Date();
             const yyyy = today.getFullYear();
@@ -1230,6 +1277,7 @@
             });
 
             document.getElementById('stoolType').value = '硬い（コロコロ）';
+            document.getElementById('stoolDifficult').checked = false;
             document.getElementById('careEnema').checked = false;
             document.getElementById('careManual').checked = false;
             document.getElementById('medMorning').checked = false;
@@ -1248,7 +1296,7 @@
                     ? '★'.repeat(log.condition) + '☆'.repeat(5 - log.condition)
                     : 'ー';
                 const bowelText = log.hasStool
-                    ? `あり（${escapeHtml(log.bowel.amount)}・${escapeHtml(log.bowel.type)}）`
+                    ? `あり（${escapeHtml(log.bowel.amount)}・${escapeHtml(log.bowel.type)}${log.bowel.difficult === true ? '・出にくい' : ''}）`
                     : 'なし';
                 const careList = [];
                 if (log.enema) careList.push('浣腸');
