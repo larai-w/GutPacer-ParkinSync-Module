@@ -466,24 +466,26 @@ export const handler = async (event) => {
 
         if (method === "GET") {
             // **Scan ではなく Query。** 世帯で絞らないと、他所帯の記録が混ざる。
-            const result = await docClient.send(new QueryCommand({
+            // 記録取得と設定取得は互いに依存しないので並列化する。
+            // 設定だけ失敗した場合は従来どおり home にフォールバックし、
+            // 世帯Queryの失敗は外側の500処理へ伝える。
+            const logsPromise = docClient.send(new QueryCommand({
                 TableName: TABLE_NAME,
                 KeyConditionExpression: "#u = :household",
                 ExpressionAttributeNames: { "#u": "userId" },
                 ExpressionAttributeValues: { ":household": HOUSEHOLD_ID }
             }));
+            const settingPromise = docClient.send(new GetCommand({
+                TableName: SETTINGS_TABLE,
+                Key: { settingKey: "location" }
+            })).catch((e) => {
+                console.error("Settings fetch failed, using default:", e.message);
+                return null;
+            });
+            const [result, settingResult] = await Promise.all([logsPromise, settingPromise]);
             const logs = (result.Items || []).sort((a, b) => new Date(b.fullDate) - new Date(a.fullDate));
 
-            let location = "home";
-            try {
-                const settingResult = await docClient.send(new GetCommand({
-                    TableName: SETTINGS_TABLE,
-                    Key: { settingKey: "location" }
-                }));
-                location = settingResult.Item?.value ?? "home";
-            } catch (e) {
-                console.error("Settings fetch failed, using default:", e.message);
-            }
+            const location = settingResult?.Item?.value ?? "home";
 
             return { statusCode: 200, headers, body: JSON.stringify({ logs, location }) };
         }

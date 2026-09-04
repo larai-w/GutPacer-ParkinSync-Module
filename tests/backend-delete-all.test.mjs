@@ -158,3 +158,13 @@ test("記録の読み出しも世帯で絞る", () => {
       "世帯を指定していない Query がある");
   }
 });
+
+test("GETの記録Queryと設定取得は並列で、設定失敗はhomeへフォールバックする", () => {
+  const start = BACKEND.indexOf('if (method === "GET")');
+  const body = BACKEND.slice(start, BACKEND.indexOf('if (method === "DELETE")', start));
+  assert.match(body, /const logsPromise = docClient\.send\(new QueryCommand/);
+  assert.match(body, /const settingPromise = docClient\.send\(new GetCommand/);
+  assert.match(body, /Promise\.all\(\[logsPromise, settingPromise\]\)/);
+  assert.match(body, /return null;/, "設定取得失敗時にPromiseを解決していない");
+  assert.match(body, /settingResult\?\.Item\?\.value \?\? "home"/);
+});
