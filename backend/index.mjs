@@ -188,12 +188,17 @@ async function isLockedOut(sourceIp) {
             Key: { settingKey: attemptKey(sourceIp) }
         }));
         const item = result.Item;
-        if (!item) return false;
-        if (Number(item.expiresAt || 0) * 1000 < Date.now()) return false;
-        return Number(item.count || 0) >= MAX_FAILED_ATTEMPTS;
+        if (!item) return { lockedOut: false, hasRecord: false };
+        if (Number(item.expiresAt || 0) * 1000 < Date.now()) {
+            return { lockedOut: false, hasRecord: false };
+        }
+        return {
+            lockedOut: Number(item.count || 0) >= MAX_FAILED_ATTEMPTS,
+            hasRecord: true,
+        };
     } catch (error) {
         console.log(`[PIN LOCKOUT CHECK FAILED] ${error.message}`);
-        return false;
+        return { lockedOut: false, hasRecord: false };
     }
 }
 
@@ -351,7 +356,8 @@ export const handler = async (event) => {
         // レート制限が無く、関数URLは公開されていた。**毎秒10回で平均8分**で
         // 当たる計算だった（実際には試していない）。
         // PIN を長くするのが第一だが、長さだけに頼らない。
-        if (await isLockedOut(sourceIp)) {
+        const lockoutState = await isLockedOut(sourceIp);
+        if (lockoutState.lockedOut) {
             console.log(`[PIN LOCKOUT] ip=${sourceIp}`);
             return {
                 statusCode: 429,
@@ -366,7 +372,7 @@ export const handler = async (event) => {
             await recordFailedAttempt(sourceIp);
             return { statusCode: 401, headers, body: JSON.stringify({ error: "Unauthorized" }) };
         }
-        await clearFailedAttempts(sourceIp);
+        if (lockoutState.hasRecord) await clearFailedAttempts(sourceIp);
 
         if (method === "POST") {
             const body = JSON.parse(event.body);

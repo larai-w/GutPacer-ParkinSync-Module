@@ -55,6 +55,16 @@ test("失敗を数えて締め出す", () => {
   assert.match(SRC, /clearFailedAttempts\(sourceIp\)/, "成功時に数え直していない");
 });
 
+test("失敗履歴がない成功リクエストでは削除を発行しない", () => {
+  // 正常利用のたびに DynamoDB Delete を発行すると、認証だけで余計な往復が増える。
+  // 履歴がある場合の削除は維持し、履歴がない場合だけ省略する。
+  assert.match(
+    SRC,
+    /if \(lockoutState\.hasRecord\) await clearFailedAttempts\(sourceIp\)/,
+    "失敗履歴の有無を見ずに削除している"
+  );
+});
+
 test("締め出しの判定は認証より先に行う", () => {
   // 後に置くと、締め出し中でも PIN の判定が走り、
   // **正解かどうかが応答から分かってしまう。**
@@ -80,7 +90,7 @@ test("締め出しの仕組みが壊れても、認証は止まらない", () =>
   assert.ok(catchBlock, "締め出しの判定が失敗したとき握りつぶしていない");
   assert.match(
     catchBlock[1],
-    /return false/,
+    /lockedOut:\s*false/,
     "失敗時に締め出し扱いにしている。DynamoDB が落ちると家族が入れなくなる"
   );
   assert.ok(
