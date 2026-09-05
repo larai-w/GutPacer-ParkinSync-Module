@@ -290,6 +290,15 @@
             <button type="button" id="saveBtn" onclick="saveGutLog()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl shadow-md active:scale-[0.99] transition-all flex items-center justify-center gap-2 text-base disabled:bg-slate-400">
                 <i class="fa-solid fa-cloud-arrow-up"></i> 記録を保存する
             </button>
+            <div id="saveConfirmation" class="hidden mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900" role="status" aria-live="polite">
+                <div class="flex items-start gap-2">
+                    <i class="fa-solid fa-circle-check mt-0.5 text-emerald-700" aria-hidden="true"></i>
+                    <div class="min-w-0">
+                        <p class="font-bold">記録を保存しました</p>
+                        <p id="saveConfirmationDetails" class="mt-1 text-xs leading-relaxed"></p>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <section class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 js-input-only">
@@ -1094,7 +1103,7 @@
                 // BEN-004: 保存成功時に記録時間を送信（非同期・失敗してもUX阻害しない）
                 recordTimeTracker.stop().catch(() => {});
 
-                alert('記録を保存しました');
+                showSaveConfirmation(logEntry);
                 resetForm();
                 // 保存が成功したら最新のデータをサーバーから再取得して画面を更新
                 await fetchDataFromServer();
@@ -1223,10 +1232,10 @@
 
                 html += `
                     <div class="flex gap-2 pt-2 border-t border-slate-100 js-log-actions">
-                        <button onclick="loadLogByDate('${escapeHtml(log.fullDate)}')" class="flex-1 text-xs font-bold py-1.5 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 active:scale-95 transition-all">
+                        <button onclick="loadLogByDate('${escapeHtml(log.fullDate)}')" class="flex-1 min-h-11 text-xs font-bold py-2 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 active:scale-95 transition-all">
                             <i class="fa-solid fa-pen-to-square mr-1"></i>編集
                         </button>
-                        <button onclick="deleteLog('${escapeHtml(log.fullDate)}')" class="flex-1 text-xs font-bold py-1.5 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 active:scale-95 transition-all">
+                        <button onclick="deleteLog('${escapeHtml(log.fullDate)}')" class="flex-1 min-h-11 text-xs font-bold py-2 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 active:scale-95 transition-all">
                             <i class="fa-solid fa-trash mr-1"></i>削除
                         </button>
                     </div>
@@ -1255,6 +1264,29 @@
 
         function setLogDateToday() {
             document.getElementById('logDate').value = toDateInputValue(new Date());
+        }
+
+        // 保存後も、何が保存されたかを画面に残す。
+        // 自由入力は表示せず、保存処理で確定した項目だけを要約する。
+        function showSaveConfirmation(logEntry) {
+            const box = document.getElementById('saveConfirmation');
+            const details = document.getElementById('saveConfirmationDetails');
+            if (!box || !details) return;
+
+            const bowel = logEntry.hasStool
+                ? `便あり（${logEntry.bowel.amount}・${logEntry.bowel.type}${logEntry.bowel.difficult ? '・出にくい' : ''}）`
+                : '便なし';
+            const medicationTimes = [
+                ['朝', logEntry.meds.morning],
+                ['昼', logEntry.meds.noon],
+                ['夜', logEntry.meds.evening],
+            ]
+                .filter(([, taken]) => taken)
+                .map(([label]) => label)
+                .join('・');
+            const medication = medicationTimes ? `服薬：${medicationTimes}` : '服薬：記録なし';
+            details.textContent = `${logEntry.fullDate} ／ ${bowel} ／ ${medication}`;
+            box.classList.remove('hidden');
         }
 
         function resetForm() {
