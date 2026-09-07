@@ -1137,6 +1137,8 @@
                 btn.classList.add('border-slate-200', 'bg-white', 'text-slate-600');
             });
             selectedAmountValue = '';
+            document.getElementById('stoolType').selectedIndex = 0;
+            document.getElementById('stoolDifficult').checked = false;
             if (log.hasStool && log.bowel) {
                 document.querySelectorAll('.amount-btn').forEach(btn => {
                     if (btn.textContent.trim() === log.bowel.amount) selectAmount(log.bowel.amount, btn);
@@ -1221,7 +1223,7 @@
                 if (medList.length > 0) {
                     html += `<span class="bg-emerald-100 text-emerald-800 font-bold px-2.5 py-1 rounded-sm">💊 薬: ${medList.join('・')}</span>`;
                 } else {
-                    html += `<span class="bg-rose-50 text-rose-600 px-2.5 py-1 rounded-sm">💊 薬: 未服用</span>`;
+                    html += `<span class="bg-rose-50 text-rose-600 px-2.5 py-1 rounded-sm">💊 薬: 記録なし</span>`;
                 }
 
                 html += `</div>`;
