@@ -2,7 +2,7 @@
 
 **A serverless bowel and medication record for a configured family household, with PDF export, a read-only care view, and scheduled LINE record reminders. Part of the ParkinSync care-data ecosystem.**
 
-Caregivers log daily bowel events and medication intake through a mobile-friendly single-page app backed by AWS Lambda and DynamoDB. The tool itself is condition-agnostic; data collected here can feed the broader ParkinSync analytics pipeline.
+Caregivers log daily bowel events and medication intake through a mobile-friendly single-page app backed by AWS Lambda and DynamoDB. The tool itself is condition-agnostic; its versioned observation export supports downstream review, while live ingestion into ParkinSync is not implemented.
 
 **Status:** In development
 
@@ -13,6 +13,16 @@ Caregivers log daily bowel events and medication intake through a mobile-friendl
 Daily bowel, medication, and condition details can be difficult to reconstruct during family conversations or appointments. GutPacer gives one configured family household a consistent place to record those observations and export them for review. It began in a Parkinson's care context, but the current tool is condition-agnostic: it does not interpret a pattern, diagnose a condition, or recommend treatment.
 
 ---
+
+## Reading and correcting records
+
+The history and read-only care view show **記録なし** when there are no recorded medication timings.
+This means no intake was recorded; it does not establish that medication was not taken.
+When opening an existing entry for correction, the bowel-form controls are reset before that
+entry is loaded, so values from a previously edited entry do not remain in the form.
+
+The current service remains PIN-protected for one configured family. These improvements do not
+add separate staff accounts, public signup, or multi-household isolation.
 
 ## Architecture
 
