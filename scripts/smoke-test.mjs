@@ -256,7 +256,7 @@ await test("care-event/v1 export は日単位・欠測・メモの意味を保�
     }], "U-synthetic", "2026-08-13T00:00:00.000Z");
     const bowel = body.events.find((event) => event.eventType === "bowel_movement");
     const condition = body.events.find((event) => event.eventType === "daily_condition_logged");
-    assert.equal(bowel.missingness, "confirmed_none");
+    assert.equal(bowel.missingness, "not_recorded");
     assert.equal(bowel.payload.timePrecision, "day");
     assert.equal(condition.payload.note, "synthetic note");
 });

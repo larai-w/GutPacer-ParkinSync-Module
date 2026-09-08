@@ -27,7 +27,7 @@ test("the runtime care-event export is schema-shaped and preserves missingness",
     exported.events.forEach(validateRuntimeEvent);
 
     const bowel = exported.events.filter((event) => event.eventType === "bowel_movement");
-    assert.deepEqual(bowel.map((event) => event.missingness), ["observed", "confirmed_none", "confirmed_none"]);
+    assert.deepEqual(bowel.map((event) => event.missingness), ["observed", "confirmed_none", "not_recorded"]);
     assert.ok(exported.events.some((event) => event.eventType === "movicol_taken"));
     const medicationEvent = exported.events.find((event) => event.eventType === "movicol_taken");
     assert.equal(medicationEvent.payload.medicationRef, "med-movicol");
@@ -39,4 +39,26 @@ test("the runtime export is deterministic for the same snapshot", () => {
     const first = exportCareEvents(fixture, "synthetic-household-001", "2026-08-13T10:00:00+09:00");
     const second = exportCareEvents(fixture, "synthetic-household-001", "2026-08-13T10:00:00+09:00");
     assert.deepEqual(first, second);
+});
+
+test("legacy no-stool values are not treated as confirmed absence", () => {
+    for (const record of [
+        { hasStool: false, bowel: null },
+        { hasStool: false },
+        { bowelConfirmedNone: "true" },
+        { hasStool: true, bowel: null, bowelConfirmedNone: true },
+    ]) {
+        const result = exportCareEvents([{ fullDate: "2026-09-08", ...record }], "synthetic");
+        assert.equal(result.events[0].missingness, "not_recorded");
+        assert.deepEqual(result.events[0].payload, { timePrecision: "day" });
+    }
+});
+
+test("explicit absence survives export and observations take precedence", () => {
+    const result = exportCareEvents([
+        { fullDate: "2026-09-07", hasStool: false, bowel: null, bowelConfirmedNone: true },
+        { fullDate: "2026-09-08", hasStool: true, bowel: { amount: "小 (S)", type: "普通（バナナ状）" }, bowelConfirmedNone: true },
+    ], "synthetic");
+    assert.deepEqual(result.events.map(x => x.missingness), ["confirmed_none", "observed"]);
+    assert.equal(result.events[1].provenance.transformVersion, "gutpacer-care-event/1.1");
 });

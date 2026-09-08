@@ -106,3 +106,18 @@ software. What it demonstrates:
   boundaries, and health-copy rules applied across the app, repository, product pages, and blog.
 
 Related engineering write-ups are on the [VEAI LAB blog](https://veai.jp/blog/).
+
+### Bowel observation status
+
+Leaving the bowel amount unselected does not confirm absence. Select an amount for
+an observed bowel movement, or explicitly check **排便なしを確認した**. Otherwise
+history, the care view and PDF show **未確認・記録なし**. Earlier records without an
+explicit absence marker are shown conservatively with the same label; their stored
+values are not migrated or rewritten.
+
+New records retain the existing `hasStool` / `bowel` fields and add
+`bowelConfirmedNone`. Both care-event exporters require this marker to produce
+`confirmed_none`; unmarked absence becomes `not_recorded`. Transform version 1.1
+identifies this interpretation change. For the LINE MVP API, deploy the runtime exporter update before
+serving the new frontend to its users so unselected entries are not exported as
+confirmed absence. The current PIN API preserves the additional marker when saving.

@@ -209,7 +209,12 @@
             <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
                 <span class="text-xl section-emoji">💩</span> 排便記録
             </h2>
-            <p class="text-xs text-slate-600">※便が出た場合は、以下の量と状態を選択してください。選択しなければ「便なし」として記録されます。</p>
+            <p class="text-xs text-slate-600">便が出た場合は量と状態を選び、出ていないことを確認した場合は「排便なしを確認した」にチェックしてください。どちらも選ばなければ「未確認・記録なし」で保存します。</p>
+            <label class="flex items-center gap-3 min-h-11 text-sm text-slate-700">
+                <input id="bowelConfirmedNone" type="checkbox" onchange="selectNoStool(this.checked)" class="w-5 h-5">
+                排便なしを確認した
+            </label>
+            <button type="button" onclick="selectNoStool(true); document.getElementById('bowelConfirmedNone').checked = false" class="min-h-11 text-sm underline text-slate-600">選択を解除（未確認に戻す）</button>
             <hr class="border-slate-100">
 
             <div class="space-y-2">
@@ -973,7 +978,18 @@
             selectedConditionValue = score;
         }
 
+        function selectNoStool(checked) {
+            if (!checked) return;
+            selectedAmountValue = '';
+            document.querySelectorAll('.amount-btn').forEach(btn => {
+                btn.classList.remove('border-indigo-600', 'bg-indigo-50', 'text-indigo-600');
+                btn.classList.add('border-slate-200', 'bg-white', 'text-slate-600');
+            });
+            document.getElementById('stoolDifficult').checked = false;
+        }
+
         function selectAmount(amount, element) {
+            document.getElementById('bowelConfirmedNone').checked = false;
             document.querySelectorAll('.amount-btn').forEach(btn => {
                 btn.classList.remove('border-indigo-600', 'bg-indigo-50', 'text-indigo-600');
                 btn.classList.add('border-slate-200', 'bg-white', 'text-slate-600');
@@ -1051,11 +1067,17 @@
             }
         }
 
+        function bowelStatus(log) {
+            if (log.hasStool === true && log.bowel) return 'observed';
+            if (log.hasStool !== true && !log.bowel && log.bowelConfirmedNone === true) return 'confirmed_none';
+            return 'not_recorded';
+        }
+
         function captureLogForm() {
             return JSON.stringify([
                 selectedConditionValue, selectedAmountValue,
                 ...['logDate', 'stoolType', 'logNotes'].map(id => document.getElementById(id).value),
-                ...['stoolDifficult', 'careEnema', 'careManual', 'medMorning', 'medNoon', 'medEvening']
+                ...['bowelConfirmedNone', 'stoolDifficult', 'careEnema', 'careManual', 'medMorning', 'medNoon', 'medEvening']
                     .map(id => document.getElementById(id).checked)
             ]);
         }
@@ -1083,6 +1105,7 @@
                 fullDate: rawDate,
                 condition: selectedConditionValue,
                 hasStool: hasStool,
+                bowelConfirmedNone: !hasStool && document.getElementById('bowelConfirmedNone').checked,
                 bowel: hasStool ? {
                     amount: selectedAmountValue,
                     type: document.getElementById('stoolType').value,
@@ -1136,6 +1159,7 @@
             if (!log) return;
 
             document.getElementById('logDate').value = log.fullDate;
+            document.getElementById('bowelConfirmedNone').checked = bowelStatus(log) === 'confirmed_none';
 
             document.querySelectorAll('.cond-btn').forEach(btn => {
                 btn.classList.remove('bg-indigo-600', 'border-indigo-600', 'text-white');
@@ -1215,12 +1239,12 @@
                     </div>
                     <div class="flex flex-wrap gap-1.5 text-xs">`;
                 
-                if (log.hasStool) {
+                if (bowelStatus(log) === 'observed') {
                     const bowelDetail = escapeHtml(log.bowel.amount) + '・' + escapeHtml(log.bowel.type)
                         + (log.bowel.difficult === true ? '・出にくい' : '');
                     html += `<span class="bg-amber-100 text-amber-800 font-bold px-2.5 py-1 rounded-sm">💩 便: あり [${bowelDetail}]</span>`;
                 } else {
-                    html += `<span class="bg-slate-200 text-slate-700 px-2.5 py-1 rounded-sm">💩 便: なし</span>`;
+                    html += `<span class="bg-slate-200 text-slate-700 px-2.5 py-1 rounded-sm">💩 便: ${bowelStatus(log) === 'confirmed_none' ? 'なし（確認済み）' : '未確認・記録なし'}</span>`;
                 }
 
                 if (log.enema) {
@@ -1290,9 +1314,9 @@
             const details = document.getElementById('saveConfirmationDetails');
             if (!box || !details) return;
 
-            const bowel = logEntry.hasStool
+            const bowel = bowelStatus(logEntry) === 'observed'
                 ? `便あり（${logEntry.bowel.amount}・${logEntry.bowel.type}${logEntry.bowel.difficult ? '・出にくい' : ''}）`
-                : '便なし';
+                : bowelStatus(logEntry) === 'confirmed_none' ? '便なし（確認済み）' : '排便：未確認・記録なし';
             const medicationTimes = [
                 ['朝', logEntry.meds.morning],
                 ['昼', logEntry.meds.noon],
@@ -1320,6 +1344,7 @@
             });
 
             selectedAmountValue = '';
+            document.getElementById('bowelConfirmedNone').checked = false;
             document.querySelectorAll('.amount-btn').forEach(btn => {
                 btn.classList.remove('border-indigo-600', 'bg-indigo-50', 'text-indigo-600');
                 btn.classList.add('border-slate-200', 'bg-white', 'text-slate-600');
@@ -1344,9 +1369,9 @@
                 const stars = log.condition > 0
                     ? '★'.repeat(log.condition) + '☆'.repeat(5 - log.condition)
                     : 'ー';
-                const bowelText = log.hasStool
+                const bowelText = bowelStatus(log) === 'observed'
                     ? `あり（${escapeHtml(log.bowel.amount)}・${escapeHtml(log.bowel.type)}${log.bowel.difficult === true ? '・出にくい' : ''}）`
-                    : 'なし';
+                    : bowelStatus(log) === 'confirmed_none' ? 'なし（確認済み）' : '未確認・記録なし';
                 const careList = [];
                 if (log.enema) careList.push('浣腸');
                 if (log.manualHelp) careList.push('摘便ヘルプ');
@@ -1369,7 +1394,7 @@
             return `
                 <h1 style="font-size: 20px; font-weight: bold; margin: 0 0 4px;">GutPacer 排便・服薬記録レポート</h1>
                 <p style="font-size: 11px; color: #64748b; margin: 0 0 20px;">作成日時: ${generatedAt} ／ Module of ParkinSync</p>
-                <p style="font-size: 11px; margin: 0 0 12px;">服薬の「記録なし」は、飲んでいないことを確認した意味ではありません。</p>
+                <p style="font-size: 11px; margin: 0 0 12px;">服薬の「記録なし」は、飲んでいないことを確認した意味ではありません。排便の「未確認・記録なし」も、排便なしを確認した意味ではありません。旧版の便なし記録は確認の区別がないため、この表記になります。</p>
                 <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
                     <thead>
                         <tr style="background: #eaf7e6; text-align: left;">

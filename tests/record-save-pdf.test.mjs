@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 const html = readFileSync(new URL('../frontend/index.html', import.meta.url), 'utf8');
 function setup({ existing = [], confirm = true, fail = false, pending = false } = {}) {
-    const fields = Object.fromEntries(['logDate','stoolType','logNotes','stoolDifficult','careEnema','careManual','medMorning','medNoon','medEvening','saveBtn','saveConfirmationDetails'].map(id => [id, {value:'',checked:false,disabled:false,textContent:''}]));
+    const fields = Object.fromEntries(['bowelConfirmedNone','logDate','stoolType','logNotes','stoolDifficult','careEnema','careManual','medMorning','medNoon','medEvening','saveBtn','saveConfirmationDetails'].map(id => [id, {value:'',checked:false,disabled:false,textContent:''}]));
     fields.logDate.value = '2026-09-07';
     fields.logNotes.value = '朝の記録';
     let release;
@@ -49,8 +49,17 @@ test('入力に変更がなければ保存成功後にリセットする', async
 test('PDFは未記録を未服用と断定せず年を含めて出力する', () => {
     const ctx=vm.createContext({});
     vm.runInContext(html.slice(html.indexOf('        function escapeHtml('),html.indexOf('        function getPin(')),ctx);
+    vm.runInContext(html.slice(html.indexOf('        function bowelStatus('), html.indexOf('        function captureLogForm(')),ctx);
     vm.runInContext(html.slice(html.indexOf('        function buildPdfReportHtml('),html.indexOf('        // 📄 履歴をPDFファイル')),ctx);
     const out=ctx.buildPdfReportHtml([{date:'9/7',fullDate:'2026-09-07',condition:0,hasStool:false,meds:{},notes:'<script>test</script>'}]);
     assert.match(out,/記録なし/); assert.doesNotMatch(out,/未服用/);
     assert.match(out,/2026-09-07/); assert.doesNotMatch(out,/<script>/);
+});
+
+test('未選択と明示した排便なしを保存本文で区別する', async () => {
+    const unknown = setup(); await unknown.ctx.saveGutLog();
+    assert.equal(unknown.writes[0].bowelConfirmedNone, false);
+    const absent = setup(); absent.fields.bowelConfirmedNone.checked = true;
+    await absent.ctx.saveGutLog(); assert.equal(absent.writes[0].bowelConfirmedNone, true);
+    assert.equal(absent.writes[0].hasStool, false);
 });

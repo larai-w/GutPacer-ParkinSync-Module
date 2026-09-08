@@ -19,7 +19,7 @@ test("確認カードは保存した日付・排便・服薬を要約する", ()
   const start = HTML.indexOf("function showSaveConfirmation");
   const body = HTML.slice(start, start + 1800);
   assert.match(body, /logEntry\.fullDate/, "保存日が確認表示に含まれていない");
-  assert.match(body, /logEntry\.hasStool/, "排便の有無が確認表示に含まれていない");
+  assert.match(body, /bowelStatus\(logEntry\)/, "排便の有無が確認表示に含まれていない");
   assert.match(body, /logEntry\.meds/, "服薬内容が確認表示に含まれていない");
   assert.match(body, /textContent/, "要約をtextContentで表示していない");
 });

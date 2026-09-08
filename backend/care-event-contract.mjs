@@ -11,7 +11,7 @@ import { createHash } from "node:crypto";
 
 export const CARE_EVENT_SCHEMA_VERSION = "care-event/v1";
 export const GUTPACER_EXPORT_VERSION = "gutpacer-care-event/1.0";
-export const GUTPACER_TRANSFORM_VERSION = "gutpacer-export/1.0";
+export const GUTPACER_TRANSFORM_VERSION = "gutpacer-export/1.1";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const OFFSET_PATTERN = /^[+-](?:0\d|1\d|2[0-3]):[0-5]\d$/;
@@ -115,7 +115,7 @@ function bowelEvent(record, context) {
             manualHelp: record.manualHelp === true
         }, "observed");
     }
-    if (record.hasStool === false) {
+    if (record.hasStool !== true && !record.bowel && record.bowelConfirmedNone === true) {
         return baseEvent(record, context, "bowel", "bowel_movement", {}, "confirmed_none");
     }
     return baseEvent(record, context, "bowel", "bowel_movement", {}, "not_recorded");

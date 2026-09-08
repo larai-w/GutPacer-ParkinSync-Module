@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 
 const SOURCE = "gutpacer";
 const EXPORT_VERSION = "gutpacer-export/1.0";
-const TRANSFORM_VERSION = "gutpacer-care-event/1.0";
+const TRANSFORM_VERSION = "gutpacer-care-event/1.1";
 
 function digest(value) {
     return createHash("sha256").update(value).digest("hex").slice(0, 16);
@@ -56,13 +56,14 @@ export function exportCareEvents(logs, userId, exportedAt = new Date().toISOStri
             log,
             "bowel",
             "bowel_movement",
-            log.bowel ? {
+            log.hasStool === true && log.bowel ? {
                 amount: log.bowel.amount ?? null,
                 stoolType: log.bowel.type ?? null,
                 enema: Boolean(log.enema),
                 manualHelp: Boolean(log.manualHelp)
             } : {},
-            log.bowel ? "observed" : "confirmed_none"
+            log.hasStool === true && log.bowel ? "observed"
+                : log.hasStool !== true && !log.bowel && log.bowelConfirmedNone === true ? "confirmed_none" : "not_recorded"
         );
 
         if (Number(log.condition) > 0 || log.notes) {
