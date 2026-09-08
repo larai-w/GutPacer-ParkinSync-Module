@@ -1051,13 +1051,26 @@
             }
         }
 
+        function captureLogForm() {
+            return JSON.stringify([
+                selectedConditionValue, selectedAmountValue,
+                ...['logDate', 'stoolType', 'logNotes'].map(id => document.getElementById(id).value),
+                ...['stoolDifficult', 'careEnema', 'careManual', 'medMorning', 'medNoon', 'medEvening']
+                    .map(id => document.getElementById(id).checked)
+            ]);
+        }
+
         // 📡 【新機能】AWSにデータを送信・保存する
         async function saveGutLog() {
+            if (document.getElementById('saveBtn').disabled) return;
             const rawDate = document.getElementById('logDate').value;
             if (!rawDate) {
                 alert('日付を選択してください');
                 return;
             }
+            if (currentLogs.some(log => log.fullDate === rawDate)
+                && !confirm(`${rawDate} の記録を、いま入力されている内容で置き換えます。続けますか？（元の内容は履歴の「編集」から読み込めます）`)) return;
+            const formBeforeSave = captureLogForm();
             const dateParts = rawDate.split('-');
             const formattedDate = `${parseInt(dateParts[1])}/${parseInt(dateParts[2])}`;
 
@@ -1104,7 +1117,9 @@
                 recordTimeTracker.stop().catch(() => {});
 
                 showSaveConfirmation(logEntry);
-                resetForm();
+                // 通信待ち中に追加入力された内容は、未保存のまま残す。
+                if (captureLogForm() === formBeforeSave) resetForm();
+                else document.getElementById('saveConfirmationDetails').textContent += ' ／ 保存中に変更した入力は未保存です。続けて保存してください。';
                 // 保存が成功したら最新のデータをサーバーから再取得して画面を更新
                 await fetchDataFromServer();
             } catch (error) {
@@ -1342,11 +1357,11 @@
 
                 rows += `
                     <tr style="border-bottom: 1px solid #e2e8f0;">
-                        <td style="padding: 8px; font-weight: bold; white-space: nowrap;">${escapeHtml(log.date)}</td>
+                        <td style="padding: 8px; font-weight: bold; white-space: nowrap;">${escapeHtml(log.fullDate || log.date)}</td>
                         <td style="padding: 8px;">${stars}</td>
                         <td style="padding: 8px;">${bowelText}</td>
                         <td style="padding: 8px;">${careList.join('・') || 'ー'}</td>
-                        <td style="padding: 8px;">${medList.join('・') || '未服用'}</td>
+                        <td style="padding: 8px;">${medList.join('・') || '記録なし'}</td>
                         <td style="padding: 8px; white-space: pre-wrap;">${escapeHtml(log.notes || '')}</td>
                     </tr>`;
             });
@@ -1354,6 +1369,7 @@
             return `
                 <h1 style="font-size: 20px; font-weight: bold; margin: 0 0 4px;">GutPacer 排便・服薬記録レポート</h1>
                 <p style="font-size: 11px; color: #64748b; margin: 0 0 20px;">作成日時: ${generatedAt} ／ Module of ParkinSync</p>
+                <p style="font-size: 11px; margin: 0 0 12px;">服薬の「記録なし」は、飲んでいないことを確認した意味ではありません。</p>
                 <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
                     <thead>
                         <tr style="background: #eaf7e6; text-align: left;">
