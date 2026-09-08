@@ -3,6 +3,11 @@
 // 実行: npm test  (要: npm install)
 
 import assert from "node:assert/strict";
+import { mock } from "node:test";
+import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
+
+// 認証失敗の回数記録も含め、スモークテストから実DBへ接続しない。
+mock.method(DynamoDBDocumentClient.prototype, "send", async () => ({}));
 import { readFile } from "node:fs/promises";
 
 process.env.ACCESS_PIN = "1234";
