@@ -16,6 +16,9 @@ Caregivers log daily bowel events and medication intake through a mobile-friendl
 
 Contributions are welcome. See [CONTRIBUTING](./CONTRIBUTING.md).
 
+- Quick start for first contributions: open an issue with the [Good first issue](https://github.com/larai-w/GutPacer-ParkinSync-Module/issues/new/choose) template.
+- For code changes, open a pull request from [Compare changes](https://github.com/larai-w/GutPacer-ParkinSync-Module/compare).
+
 ---
 
 ## Why this exists
