@@ -214,7 +214,8 @@
                 <input id="bowelConfirmedNone" type="checkbox" onchange="selectNoStool(this.checked)" class="w-5 h-5">
                 排便なしを確認した
             </label>
-            <button type="button" onclick="selectNoStool(true); document.getElementById('bowelConfirmedNone').checked = false" class="min-h-11 text-sm underline text-slate-600">選択を解除（未確認に戻す）</button>
+            <p id="bowelSelectionStatus" class="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-700" role="status" aria-live="polite" aria-atomic="true">今の選択：未確認のまま保存します</p>
+            <button type="button" onclick="clearBowelSelection()" class="min-h-11 text-sm underline text-slate-600">選択を解除（未確認に戻す）</button>
             <hr class="border-slate-100">
 
             <div class="space-y-2">
@@ -978,14 +979,39 @@
             selectedConditionValue = score;
         }
 
-        function selectNoStool(checked) {
-            if (!checked) return;
+        function updateBowelSelectionStatus() {
+            const status = document.getElementById('bowelSelectionStatus');
+            if (!status) return;
+            if (selectedAmountValue) {
+                status.textContent = `今の選択：便あり（${selectedAmountValue}）として保存します`;
+            } else if (document.getElementById('bowelConfirmedNone').checked) {
+                status.textContent = '今の選択：排便なしを確認済みとして保存します';
+            } else {
+                status.textContent = '今の選択：未確認のまま保存します';
+            }
+        }
+
+        function clearBowelSelection() {
             selectedAmountValue = '';
+            document.getElementById('bowelConfirmedNone').checked = false;
             document.querySelectorAll('.amount-btn').forEach(btn => {
                 btn.classList.remove('border-indigo-600', 'bg-indigo-50', 'text-indigo-600');
                 btn.classList.add('border-slate-200', 'bg-white', 'text-slate-600');
             });
             document.getElementById('stoolDifficult').checked = false;
+            updateBowelSelectionStatus();
+        }
+
+        function selectNoStool(checked) {
+            if (checked) {
+                selectedAmountValue = '';
+                document.querySelectorAll('.amount-btn').forEach(btn => {
+                    btn.classList.remove('border-indigo-600', 'bg-indigo-50', 'text-indigo-600');
+                    btn.classList.add('border-slate-200', 'bg-white', 'text-slate-600');
+                });
+                document.getElementById('stoolDifficult').checked = false;
+            }
+            updateBowelSelectionStatus();
         }
 
         function selectAmount(amount, element) {
@@ -997,6 +1023,7 @@
             element.classList.remove('border-slate-200', 'bg-white', 'text-slate-600');
             element.classList.add('border-indigo-600', 'bg-indigo-50', 'text-indigo-600');
             selectedAmountValue = amount;
+            updateBowelSelectionStatus();
         }
 
         function updateLastStoolDisplay(logs) {
@@ -1186,6 +1213,7 @@
                 // 古い記録には difficult が無い。**「出にくかった」を既定にしない。**
                 document.getElementById('stoolDifficult').checked = log.bowel.difficult === true;
             }
+            updateBowelSelectionStatus();
 
             document.getElementById('careEnema').checked = log.enema || false;
             document.getElementById('careManual').checked = log.manualHelp || false;
@@ -1352,6 +1380,7 @@
 
             document.getElementById('stoolType').value = '硬い（コロコロ）';
             document.getElementById('stoolDifficult').checked = false;
+            updateBowelSelectionStatus();
             document.getElementById('careEnema').checked = false;
             document.getElementById('careManual').checked = false;
             document.getElementById('medMorning').checked = false;
