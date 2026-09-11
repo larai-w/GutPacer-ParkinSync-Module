@@ -20,3 +20,6 @@ private/
 **/WORKLOG*.md
 **/*_HANDOFF.md
 **/PROJECT_HANDOFF*.md
+
+# Private local working material
+personal/
