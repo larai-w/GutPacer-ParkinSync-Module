@@ -1,18 +1,21 @@
 name: Deploy Notifier Lambda (legacy index.mjs — MANUAL ONLY)
 
-# ⚠️ **これは旧実装を出すワークフロー。自動では走らせない。**
+# WARNING: this workflow deploys the OLD implementation. It never runs
+# automatically.
 #
-# 本番の `gutpacer-notifier` で動いているのは `backend/notifier/index-mvp.mjs` で、
-# それを出すのは **deploy-closed-beta.yml**。このファイルが出すのは
-# `backend/notifier/index.mjs`（旧実装・`gutpacer-logs` を直書き）。
+# What runs in production as `gutpacer-notifier` is
+# `backend/notifier/index-mvp.mjs`, deployed by deploy-closed-beta.yml.
+# This file deploys `backend/notifier/index.mjs`: the old implementation, which
+# writes directly to `gutpacer-logs`.
 #
-# **2026-08-27 に2回、本番をこの旧実装で上書きした。**
-#   1回目: paths が `backend/notifier/**` で、issue #3 の PR に反応した
-#   2回目: paths を絞ったが、**このファイル自身**も paths に入っていたため、
-#          「起動条件を直す PR」そのもので起動した
+# On 2026-08-27 this overwrote production with the old implementation twice.
+#   First: paths was `backend/notifier/**`, so it fired on the PR for issue #3.
+#   Second: paths was narrowed, but this file itself was still in paths, so the
+#           very PR that fixed the trigger condition triggered it.
 #
-# **起動条件を絞るだけでは足りなかった。** push トリガーを外し、
-# 手動でしか走らないようにする。旧実装が要るとき（切り戻しなど）だけ使う。
+# Narrowing the trigger was not enough. The push trigger is removed and this
+# runs by hand only. Use it when the old implementation is actually wanted, such
+# as a rollback.
 
 on:
   workflow_dispatch:
@@ -43,7 +46,7 @@ jobs:
         run: |
           zip -j function.zip backend/notifier/index.mjs
 
-      # Lambda functions live in ap-northeast-1 (2026-08-28 に us-east-1 から移設)。
+      # Lambda functions live in ap-northeast-1 (moved from us-east-1 on 2026-08-28).
       # The AWS_REGION secret is a
       # different region, so target the function region explicitly here
       # (a region mismatch causes AccessDenied against the ap-northeast-1 ARN).
