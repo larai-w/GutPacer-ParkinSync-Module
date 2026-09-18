@@ -8,9 +8,9 @@ import {
     PutCommand,
     DeleteCommand
 } from "@aws-sdk/lib-dynamodb";
-import { createHash, timingSafeEqual } from "node:crypto";
 import { getLineIdToken, verifyLineIdToken } from "./line-auth.mjs";
 import { createDefaultProfile, defaultHouseholdId } from "./profile-defaults.mjs";
+import { parseInviteAssignments, resolveInvitedHousehold } from "./invite-assignments.mjs";
 import { exportCareEvents } from "./care-event-export.mjs";
 
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
@@ -44,13 +44,6 @@ function getHeader(event, name) {
     return Object.entries(event?.headers || {}).find(([key]) => key.toLowerCase() === wanted)?.[1] || "";
 }
 
-function inviteCodeMatches(code, expectedHash) {
-    if (!code || !expectedHash || !/^[a-f0-9]{64}$/i.test(expectedHash)) return false;
-    const actual = createHash("sha256").update(code).digest();
-    const expected = Buffer.from(expectedHash, "hex");
-    return actual.length === expected.length && timingSafeEqual(actual, expected);
-}
-
 async function getOrCreateProfile(userId, dependencies = {}) {
     const db = dependencies.client || client;
     const now = dependencies.now || (() => new Date().toISOString());
@@ -64,11 +57,28 @@ async function getOrCreateProfile(userId, dependencies = {}) {
         dependencies.invitedUserIds ?? process.env.INVITED_USER_IDS ?? ""
     ).split(",").map((value) => value.trim()).filter(Boolean));
     const inviteHash = dependencies.inviteCodeHash ?? process.env.INVITE_CODE_HASH ?? "";
-    if (!invitedUserIds.has(userId) && !inviteCodeMatches(dependencies.inviteCode, inviteHash)) {
-        throw new InviteRequiredError();
-    }
+    const assignments = dependencies.inviteAssignments ?? parseInviteAssignments(
+        process.env.INVITE_ASSIGNMENTS,
+        { onError: (message) => console.error(message) }
+    );
 
-    const profile = createDefaultProfile(userId, now());
+    // **「入れてよいか」と「どの家に入れるか」を同時に決める。**
+    // 割り当ての無い招待を既定世帯へ落とすと、2世帯目が
+    // 1世帯目の記録をそのまま見ることになる（issue #4）。
+    const assigned = resolveInvitedHousehold({
+        userId,
+        inviteCode: dependencies.inviteCode,
+        assignments,
+        invitedUserIds,
+        legacyInviteCodeHash: inviteHash,
+        fallbackHouseholdId: dependencies.defaultHouseholdId ?? defaultHouseholdId()
+    });
+    if (!assigned) throw new InviteRequiredError();
+
+    // 値は出さない。**どの経路で通したか**だけ残す。招待の設定を直すときに要る。
+    console.log(`Invite accepted via ${assigned.via}`);
+
+    const profile = createDefaultProfile(userId, now(), assigned.householdId);
     await db.send(new PutCommand({
         TableName: USERS_TABLE,
         Item: profile,
@@ -98,6 +108,8 @@ export function createHandler(dependencies = {}) {
                 now,
                 invitedUserIds: dependencies.invitedUserIds,
                 inviteCodeHash: dependencies.inviteCodeHash,
+                inviteAssignments: dependencies.inviteAssignments,
+                defaultHouseholdId: dependencies.defaultHouseholdId,
                 inviteCode: getHeader(event, "X-Invite-Code")
             });
 
