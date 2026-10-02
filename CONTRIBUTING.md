@@ -14,16 +14,19 @@ Thanks for helping improve GutPacer. Start by reading `README.md` and `AGENTS.md
 
 ## Run it locally
 
-The frontend is a single static page. **No build step, no AWS credentials.**
+Start with the [static preview in the README](README.md#local-preview). It uses sample
+content and does not need AWS credentials or a backend. The actual application frontend
+requires an isolated API and an ignored `frontend/config.js` for authentication and record access.
+
+For the existing checks, use Node.js 24:
 
 ```bash
-python3 -m http.server 8000 --directory frontend
-# open http://localhost:8000
+npm ci
 npm test        # smoke test + unit tests
 ```
 
 The backend (`backend/index.mjs`) is an AWS Lambda function. **You do not need it
-running to work on the frontend, tests, docs, or accessibility.** Changes that
+running to work on the static prototype, mocked tests, docs, or accessibility.** Changes that
 require live AWS are not expected from outside contributors.
 
 ## Before you start

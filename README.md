@@ -1,136 +1,170 @@
 # GutPacer
 
-**A serverless bowel and medication record for a configured family household, with PDF export, a read-only care view, and scheduled LINE record reminders. Part of the ParkinSync care-data ecosystem.**
+**A mobile-friendly bowel and medication record for caregivers, built with a static frontend and AWS serverless services.**
 
-Caregivers log daily bowel events and medication intake through a mobile-friendly single-page app backed by AWS Lambda and DynamoDB. The tool itself is condition-agnostic; its versioned observation export supports downstream review, while live ingestion into ParkinSync is not implemented.
+[日本語](README.ja.md) · [Local preview](#local-preview) · [Architecture](#architecture) · [Contributing](CONTRIBUTING.md)
 
-**Status:** In development
+GutPacer helps caregivers record daily observations, correct earlier entries, and prepare a PDF for review. It preserves the difference between an explicitly confirmed absence and an observation that was never recorded. The interface is currently in Japanese; this README provides an English guide to the implementation.
 
-### Open-source collaboration
+**Scope:** In development. The core PIN API serves one configured household. A separate LINE-authenticated API and a versioned observation export are implemented for a closed-beta path. Their presence in source does not imply public signup or a generally available multi-household service. GutPacer does not diagnose conditions or recommend treatment.
 
-- **Home Assistant** — **Merged** PR: [Accessible names for analytics consent switches](https://github.com/home-assistant/frontend/pull/54083)
-- **Microduck** — **Merged** PR: [Fresh camera snapshots through robotctl and console HTTP](https://github.com/pollen-robotics/microduck/pull/241)
-- **stack-chan** — **In review** PR: [Deterministic sample sync for gallery output](https://github.com/stack-chan/stack-chan/pull/702)
+## What you can explore
 
-### Contributing
+| Capability | Implementation and boundary |
+| --- | --- |
+| Daily records | Bowel amount/type, explicit absence, medication slots, condition and notes in [the frontend](frontend/index.html) |
+| History and corrections | Edit or delete a dated record; edits replace the stored daily record |
+| Read-only care view | A presentation mode in the same frontend, not a separately authorized staff account |
+| PDF export | Human-readable history generated in the browser |
+| LINE record reminders | [Profile-aware notifier](backend/notifier/index-mvp.mjs); skips disabled notifications and profiles whose location is `facility` |
+| Machine-readable export | `care-event/v1` snapshot through the [LINE API](backend/index-mvp.mjs); see [export semantics](docs/CARE_EVENT_EXPORT.md) |
+| Display exploration | [Static UI comparison](prototypes/display-directions.html) with sample content and four visual directions |
 
-Contributions are welcome. See [CONTRIBUTING](./CONTRIBUTING.md).
+## Local preview
 
-- Quick start for first contributions: open an issue with the [Good first issue](https://github.com/larai-w/GutPacer-ParkinSync-Module/issues/new/choose) template.
-- For code changes, open a pull request from [Compare changes](https://github.com/larai-w/GutPacer-ParkinSync-Module/compare).
+### Explore the static UI comparison without accounts
 
----
+Requirements: Git and Python 3. No Node installation, AWS credentials or LINE login are needed for this preview.
 
-## Why this exists
+```bash
+git clone https://github.com/larai-w/GutPacer-ParkinSync-Module.git
+cd GutPacer-ParkinSync-Module
+python3 -m http.server 8000 --bind 127.0.0.1
+```
 
-Daily bowel, medication, and condition details can be difficult to reconstruct during family conversations or appointments. GutPacer gives one configured family household a consistent place to record those observations and export them for review. It began in a Parkinson's care context, but the current tool is condition-agnostic: it does not interpret a pattern, diagnose a condition, or recommend treatment.
+Open **http://127.0.0.1:8000/prototypes/display-directions.html**. Switch between entry, history, care-view and report contexts, and compare the four display directions. Stop the server with `Ctrl+C`.
 
----
+This is an existing design prototype with static sample content. It does not save records or call the API. Some labels reflect an earlier design: use the [record semantics below](#record-semantics) and the current frontend as the reference for actual behavior.
 
-## Reading and correcting records
+### Work on the application frontend
 
-The history and read-only care view show **記録なし** when there are no recorded medication timings.
-This means no intake was recorded; it does not establish that medication was not taken.
-When opening an existing entry for correction, the bowel-form controls are reset before that
-entry is loaded, so values from a previously edited entry do not remain in the form.
+`frontend/index.html` is the actual app, with no bundler or framework build step. It loads browser libraries from CDNs and expects a deployment-specific `frontend/config.js`, which is intentionally ignored by Git.
 
-The current service remains PIN-protected for one configured family. These improvements do not
-add separate staff accounts, public signup, or multi-household isolation.
+In a **fresh development checkout**, create that file only when connecting to your own isolated development backend:
+
+```js
+window.API_URL = "http://127.0.0.1:8001/";
+window.GUTPACER_LIFF_ID = "";
+```
+
+The URL above is an example for a separately supplied local backend; this repository does not start a server on port 8001. Open **http://127.0.0.1:8000/frontend/** using the static server above. Without a compatible API, authentication, saving and history loading will not work. This is not a complete offline app.
+
+An empty LIFF ID selects PIN mode. LINE mode requires an appropriately configured LIFF app and the separate LINE API. Never point experiments at a live household backend, overwrite an existing deployment configuration, or put credentials in this file.
 
 ## Architecture
 
-```
-User (caregiver, mobile browser)
-  │
-  └─ frontend/index.html  (vanilla JS + Tailwind CSS, CDN-loaded)
-         │  PIN gate (X-Pin header; PIN stored in localStorage)
-         │
-         ▼
-  AWS CloudFront  (CDN + clean URL routing via CloudFront Functions)
-         │
-         ├─ Static assets ──  S3  (veai-careready-frontend/gutpacer/)
-         │
-         └─ /api/gutpacer/*  ──  API Gateway (HTTP API)
-                                       │
-                                       ├─ Lambda: backend/index.mjs  (Node.js ESM)
-                                       │     ├─ GET  — fetch logs + location setting
-                                       │     ├─ POST — write log / save location setting
-                                       │     └─ DELETE — remove log by fullDate
-                                       │
-                                       └─ DynamoDB Tables:
-                                             gutpacer-logs      (PK: fullDate)
-                                             gutpacer-settings  (PK: settingKey)
+```text
+Mobile browser
+  frontend/index.html + environment-specific config.js
+       |
+       +-- PIN mode: X-Pin --> backend/index.mjs
+       |                         |-- logs: household partition + fullDate
+       |                         `-- settings, consent and PIN lockout state
+       |
+       `-- LINE mode: ID token --> backend/index-mvp.mjs
+                                  |-- verified identity + profile
+                                  |-- household-scoped daily logs
+                                  `-- care-event/v1 snapshot export
 
-Notifier Lambda: backend/notifier/index.mjs
-  ├─ EventBridge cron: 08:00 JST daily  (cron 0 23 * * ? * UTC)
-  ├─ Reads location from gutpacer-settings
-  │     └─ Skips LINE push when location = "facility"
-  ├─ 1-day reminder: yesterday has no bowel "present" record
-  ├─ Multi-day record reminder: counts up to 7 days without a bowel "present" record
-  └─ LINE Messaging API  (Flex Message push)
+Scheduled invocation --> backend/notifier/index-mvp.mjs
+                         |-- user profiles + household logs
+                         `-- LINE Messaging API
 
-DynamoDB PITR: enabled on both tables (as of 2026-07-08)
-
-Frontend deploy: GitHub Actions → S3 sync on push to main
-Notifier deploy: GitHub Actions → Lambda zip on push to backend/notifier/**
+Static hosting: S3 / CloudFront
+API compute: AWS Lambda
+Persistence: DynamoDB
 ```
 
-No framework build step — the frontend is a single static HTML file. The API Lambda and notifier Lambda are deployed independently.
+The core API uses `gutpacer-logs-v2`, with `userId` holding the configured household partition and `fullDate` as the date key. It also uses `gutpacer-settings`. The LINE API and current notifier use the v2 logs and user-profile tables. [Profile defaults](backend/profile-defaults.mjs) and [household consistency checks](tests/household-id-consistency.test.mjs) describe how those paths align.
 
-## Machine-readable care-event export
+`backend/notifier/index.mjs` is the **legacy** notifier. The current notifier source selected by the closed-beta workflow is `backend/notifier/index-mvp.mjs`. The legacy workflow is manual-only; it targets the same function and can replace the current implementation. See the [workflow](.github/workflows/deploy-notifier.yml) before considering a rollback.
 
-GutPacer exposes a household-scoped snapshot at `/?format=care-event-v1`. The export
-uses the versioned `care-event/v1` contract described in
-[`docs/CARE_EVENT_EXPORT.md`](docs/CARE_EVENT_EXPORT.md), preserves the distinction
-between `confirmed_none` and `not_recorded`, and is covered by synthetic contract tests.
-It is an observation export for governed downstream review; it is not a diagnosis,
-treatment recommendation, or live clinical FHIR integration.
+### Configuration reference
 
----
+These are names and roles, not a turnkey provisioning recipe. Inspect the corresponding module before supplying development values.
 
-## 🏁 Product Management
+| Component | Configuration |
+| --- | --- |
+| Browser | `API_URL`; optional `GUTPACER_LIFF_ID` |
+| PIN API | Secret `ACCESS_PIN`; `HOUSEHOLD_ID` with `CONSENT_SUBJECT` fallback |
+| LINE API | `LINE_LOGIN_CHANNEL_ID`, `LOGS_TABLE`, `USERS_TABLE`; invitation controls in [the handler](backend/index-mvp.mjs) |
+| Current notifier | Secret `LINE_CHANNEL_ACCESS_TOKEN`; `LOGS_TABLE`, `USERS_TABLE`, `HOUSEHOLD_ID`, `APP_URL` |
+| Optional record-time metrics | `METRICS_COLLECTION_ENABLED`, `METRICS_TABLE`; collection also requires explicit consent |
 
-GutPacer doubles as a working **product-management portfolio** — iterative, evidence-led Agile
-delivery on a real caregiving tool, built solo and AI-assisted. It does not claim a solo project ran
-formal Scrum ceremonies; it claims a traceable line from caregiver problem to shipped, verified
-software. What it demonstrates:
+The PIN API's table names are currently constants. The LINE API and notifier accept table-name environment variables. A local configuration file alone does not provision Lambda, DynamoDB, authentication or LINE delivery.
 
-- **Evidence-based delivery** — a public trail connecting caregiver problems to personas, user
-  stories, acceptance criteria, implementation, verification, release decisions, and incident
-  learning. See [delivery management and Definition of Done](docs/PROJECT_MANAGEMENT.md) and
-  [delivered work and verification evidence](docs/TASKS.md).
-- **Stakeholder management** — the current production version is a single-family, PIN-protected
-  tool; LINE identity, server-enforced user isolation, and per-user notifications are staged for a
-  small closed beta. Scope is bounded honestly — general availability is not claimed.
-- **Technical product management** — a serverless architecture owned end to end (S3/CloudFront +
-  API Gateway + Lambda + DynamoDB with PITR), plus a scheduled notifier Lambda that pushes LINE
-  reminders and deliberately stays silent when care moves to a facility (see **Architecture** above).
-- **Agile in practice** — new work uses structured GitHub **User Story** and **Delivery Task**
-  forms; issues and PRs flow into the
-  **[GutPacer Delivery](https://github.com/users/larai-w/projects/8)** GitHub Project, and PRs
-  retain acceptance evidence, risk review, and decision context. See the
-  **[issues](https://github.com/larai-w/GutPacer-ParkinSync-Module/issues)**.
-- **Design decisions** — the public
-  **[display-direction evaluation](docs/DISPLAY_DIRECTION_EVALUATION.md)** compares factual,
-  soft non-mascot, and optional friendly treatments across family entry, history, care-staff,
-  and PDF contexts before any production default changes.
-- **Public claim control** — the
-  **[public copy audit](docs/PUBLIC_COPY_AUDIT.md)** records the implemented scope, unreleased
-  boundaries, and health-copy rules applied across the app, repository, product pages, and blog.
+## Record semantics
 
-Related engineering write-ups are on the [VEAI LAB blog](https://veai.jp/blog/).
+| Input or missing information | Meaning |
+| --- | --- |
+| Bowel event selected with details | `observed` |
+| Explicitly select **排便なしを確認した** | `confirmed_none` |
+| Leave bowel observation unspecified | `not_recorded`; the UI shows **未確認・記録なし** |
+| No recorded medication slot | **記録なし**; not proof that medication was not taken |
+| No saved daily record | No exported event for that date; not confirmed absence |
 
-### Bowel observation status
+Earlier records without an explicit `bowelConfirmedNone` marker are interpreted conservatively. Their stored values are not rewritten by this display behavior. Opening an entry for correction resets the bowel controls before loading its values.
 
-Leaving the bowel amount unselected does not confirm absence. Select an amount for
-an observed bowel movement, or explicitly check **排便なしを確認した**. Otherwise
-history, the care view and PDF show **未確認・記録なし**. Earlier records without an
-explicit absence marker are shown conservatively with the same label; their stored
-values are not migrated or rewritten.
+The [`care-event/v1` schema](schema/care-event-v1.schema.json) is intended for downstream observation review. The runtime export is wired into the LINE API, **not the core PIN API**. It is a current snapshot, with day-level time precision, deterministic pseudonymous identifiers and provenance; it is not an append-only correction ledger. Free-text notes may contain sensitive information, so pseudonymized exports must still be handled as care data.
 
-New records retain the existing `hasStool` / `bowel` fields and add
-`bowelConfirmedNone`. Both care-event exporters require this marker to produce
-`confirmed_none`; unmarked absence becomes `not_recorded`. Transform version 1.1
-identifies this interpretation change. For the LINE MVP API, deploy the runtime exporter update before
-serving the new frontend to its users so unselected entries are not exported as
-confirmed absence. The current PIN API preserves the additional marker when saving.
+Read the [export contract](docs/CARE_EVENT_EXPORT.md) and [schema versioning notes](schema/README.md). Live ingestion into ParkinSync and clinical FHIR integration are not implemented. There is no trained ML model or evaluated clinical prediction system in this repository.
+
+## Engineering checks
+
+Use Node.js 24, matching the main application workflows, and Python 3 for repository guards.
+
+```bash
+npm ci
+npm test
+```
+
+`npm test` runs the smoke script followed by Node's test runner over `tests/*.test.mjs`. The smoke script mocks DynamoDB calls and the test suite includes synthetic fixtures. These checks do not establish the state of a deployed AWS or LINE environment.
+
+Useful starting points for reviewing the code:
+
+| Concern | Source / checks |
+| --- | --- |
+| Unknown versus confirmed absence | [Bowel observation tests](tests/bowel-observation.test.mjs) |
+| Export wired into the API | [Runtime export tests](tests/care-event-runtime-export.test.mjs) |
+| Household partition consistency | [Consistency tests](tests/household-id-consistency.test.mjs) |
+| PIN attempts and lockout | [PIN tests](tests/pin-bruteforce.test.mjs) |
+| Consent and deletion boundaries | [Consent tests](tests/backend-consent.test.mjs), [deletion tests](tests/backend-delete-all.test.mjs) |
+| Lambda import packaging | [Package checks](tests/deploy-package.test.mjs) |
+
+CI includes [security and public-content checks](.github/workflows/security-baseline.yml), [closed-beta preflight](.github/workflows/beta-preflight.yml), and [cross-repository schema drift checks](.github/workflows/care-event-schema-drift.yml). Triggers differ by workflow; the existence of a workflow is not a claim that every check ran for every change.
+
+## Security and operational limits
+
+- PIN mode shares a household credential stored in browser `localStorage`; it does not provide separate caregiver identities or staff permissions. The read-only care view is a UI mode, not an authorization boundary.
+- LINE mode verifies ID tokens on the server and resolves the household from a profile. Review invitation and household-assignment behavior before extending this to additional households.
+- Reminders describe missing **records**, not confirmed physiological absence or a recommended intervention.
+- Record exports are snapshots. Deletion from GutPacer does not automatically erase downstream copies.
+- The current frontend depends on CDN libraries and a working API. Production availability, backup configuration and recovery must be checked in the target environment.
+- **A push to `main` triggers the frontend deployment even for documentation changes.** API deploys have path filters; closed-beta and legacy-notifier deployments are manual workflows. Publishing a documentation branch and merging it are separate operational decisions.
+
+## Repository guide and contributing
+
+| Location | Purpose |
+| --- | --- |
+| `frontend/` | Japanese application UI, privacy and terms pages |
+| `backend/` | PIN API, LINE API, consent, export and notifier modules |
+| `schema/` | Canonical observation contract |
+| `tests/` | Unit, contract and source-level regression checks |
+| `prototypes/` | Static design exploration |
+| `docs/` | Technical and delivery documentation |
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for small, reviewable changes. Before committing staged public files, run:
+
+```bash
+python3 scripts/check_public_repo.py --staged
+```
+
+Use synthetic examples. Keep care records, credentials and private working material out of issues, PRs and fixtures.
+
+Further reading: [delivery management](docs/PROJECT_MANAGEMENT.md), [delivered work](docs/TASKS.md), [display evaluation](docs/DISPLAY_DIRECTION_EVALUATION.md), and [public copy boundaries](docs/PUBLIC_COPY_AUDIT.md). Development is solo and AI-assisted; implementation and test evidence should be reviewed directly.
+
+Related open-source work: [Home Assistant accessibility](https://github.com/home-assistant/frontend/pull/54083), [Microduck camera snapshots](https://github.com/pollen-robotics/microduck/pull/241), and [stack-chan sample synchronization](https://github.com/stack-chan/stack-chan/pull/702).
+
+## License
+
+[MIT](LICENSE).

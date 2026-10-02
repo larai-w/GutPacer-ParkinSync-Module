@@ -8,7 +8,10 @@ GET /?format=care-event-v1
 X-Line-Id-Token: <LIFF ID token>
 ```
 
-The API verifies the token and derives the DynamoDB partition from the verified LINE subject. The
+This endpoint is implemented in `backend/index-mvp.mjs`. The core PIN API in
+`backend/index.mjs` does not implement this export parameter.
+
+The API verifies the token, loads the user's profile, and resolves the household partition. The
 request cannot select another household. The response contains `care-event/v1` events and excludes
 the LINE subject, PINs, tokens, profile preferences, and display settings. Household identifiers in
 the export are deterministic pseudonyms.
@@ -17,12 +20,15 @@ the export are deterministic pseudonyms.
 
 - GutPacer records dates rather than event times. `occurredAt` uses 23:59 JST and every payload
   declares `timePrecision: "day"`; consumers must not interpret this as an exact observation time.
-- A saved daily record with no bowel event exports `missingness: "confirmed_none"`. A date with no
-  saved record is absent from the export and must not be interpreted as confirmed none.
+- A saved daily record with bowel details and `hasStool: true` exports `missingness: "observed"`.
+  Explicit absence requires `bowelConfirmedNone: true`, no bowel details, and `hasStool` not true;
+  it exports `missingness: "confirmed_none"`. Otherwise the bowel event is `not_recorded`.
+  A date with no saved record is absent from the export and must not be interpreted as confirmed none.
 - Medication events are emitted only for slots explicitly marked as taken.
 - Medication events use an opaque `payload.medicationRef` (`med-movicol`) rather than a medication
   name. This is a reference boundary, not a clinical terminology assertion.
 - Notes are carried by `daily_condition_logged`; no separate clinical interpretation is added.
+  Free text can contain identifying information. Pseudonymous identifiers do not make the export anonymous.
 - Editing a daily record replaces its current DynamoDB value. The export is a current snapshot and
   does not claim a correction history.
 - Deleted daily records are absent from later exports. Downstream deletion propagation remains a
