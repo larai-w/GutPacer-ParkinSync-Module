@@ -52,6 +52,7 @@ jobs:
           cp backend/index-mvp.mjs package/index.mjs
           cp backend/line-auth.mjs package/line-auth.mjs
           cp backend/profile-defaults.mjs package/profile-defaults.mjs
+          cp backend/invite-assignments.mjs package/invite-assignments.mjs
           cp backend/care-event-export.mjs package/care-event-export.mjs
           cd package
           zip ../function.zip ./*.mjs
