@@ -1,6 +1,9 @@
 #!/bin/bash
 # GutPacer notifier Lambda deployment script
-# Run this in AWS CloudShell (us-east-1)
+# ⚠️ 旧手順。**本番の通知は GitHub Actions からデプロイしている**
+#    （`.github/workflows/deploy-closed-beta.yml` / `deploy-notifier.yml`、いずれも ap-northeast-1）。
+#    本番で動いているのは `backend/notifier/index-mvp.mjs`。このスクリプトは緊急時の手動用に残す。
+# Run this in AWS CloudShell (ap-northeast-1)
 #
 # Usage:
 #   export LINE_CHANNEL_ACCESS_TOKEN="your_token"
@@ -9,7 +12,7 @@
 
 set -e
 
-REGION="us-east-1"
+REGION="${REGION:-ap-northeast-1}"
 FUNCTION_NAME="gutpacer-notifier"
 ROLE_NAME="gutpacer-notifier-role"
 RULE_NAME="gutpacer-daily-8am-jst"
