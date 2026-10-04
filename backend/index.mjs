@@ -121,7 +121,7 @@ export function buildRecordTimeMetricItem(metric, now = new Date(), id = randomU
 //
 // 破壊的な操作なので、PIN だけでは実行させない。合言葉を本文に入れさせて
 // 「うっかり」と「同じリクエストの再送」で全消えしないようにする。
-// 復旧は gutpacer-logs の PITR（有効・35日）による。
+// 復旧は gutpacer-logs-v2 の PITR による。
 export const DELETE_ALL_CONFIRMATION = "DELETE-ALL";
 
 export function validateDeleteAllRequest(body) {
@@ -134,8 +134,8 @@ export function validateDeleteAllRequest(body) {
     return { ok: true };
 }
 
-// Scan の結果を BatchWrite の 25件チャンクへ割る。AWS を呼ばずに検算できる
-// よう切り出す。キーは fullDate（gutpacer-logs のパーティションキー）。
+// 世帯で絞った Query の結果を BatchWrite の 25件チャンクへ割る。
+// AWS を呼ばずに検算できるよう切り出す。キーは userId + fullDate。
 export function buildDeleteAllBatches(items, chunkSize = 25) {
     // 複合キーになったので、**両方揃っている item だけ**を対象にする。
     // 片方でも欠けたキーを渡すと DynamoDB が例外を投げ、
@@ -292,28 +292,55 @@ async function getConsentState() {
 async function deleteAllLogs() {
     // ⚠️ **ここが一番危ない。** Scan のままだと、世帯が増えたときに
     // **他所帯の記録まで消す**。削除は必ず自分の世帯の範囲に閉じる。
-    const result = await docClient.send(new QueryCommand({
+    const items = [];
+    let lastKey;
+    do {
+        const result = await docClient.send(new QueryCommand({
+            TableName: TABLE_NAME,
+            KeyConditionExpression: "#u = :household",
+            ExpressionAttributeNames: { "#u": "userId" },
+            ExpressionAttributeValues: { ":household": HOUSEHOLD_ID },
+            ConsistentRead: true,
+            ...(lastKey ? { ExclusiveStartKey: lastKey } : {})
+        }));
+        items.push(...(result.Items || []));
+        lastKey = result.LastEvaluatedKey;
+    } while (lastKey);
+    const batches = buildDeleteAllBatches(items);
+    const planned = batches.reduce((n, batch) => n + batch.length, 0);
+    if (planned !== items.length) {
+        console.log(`[DELETE ALL INCOMPLETE] scanned=${items.length} deleted=0`);
+        throw new Error("Delete all incomplete");
+    }
+
+    let deleted = 0;
+    for (const batch of batches) {
+        const result = await docClient.send(new BatchWriteCommand({
+            RequestItems: { [TABLE_NAME]: batch }
+        }));
+        const unprocessed = result.UnprocessedItems?.[TABLE_NAME]?.length || 0;
+        deleted += batch.length - unprocessed;
+        if (unprocessed) {
+            console.log(`[DELETE ALL INCOMPLETE] scanned=${items.length} deleted=${deleted}`);
+            throw new Error("Delete all incomplete");
+        }
+    }
+
+    // 強整合の残件確認が通るまで成功を返さない。別端末が同時に書いた場合も再試行を促す。
+    const remaining = await docClient.send(new QueryCommand({
         TableName: TABLE_NAME,
         KeyConditionExpression: "#u = :household",
         ExpressionAttributeNames: { "#u": "userId" },
-        ExpressionAttributeValues: { ":household": HOUSEHOLD_ID }
+        ExpressionAttributeValues: { ":household": HOUSEHOLD_ID },
+        ConsistentRead: true,
+        Select: "COUNT",
+        Limit: 1
     }));
-    const items = result.Items || [];
-    const batches = buildDeleteAllBatches(items);
-
-    for (const batch of batches) {
-        await docClient.send(new BatchWriteCommand({
-            RequestItems: { [TABLE_NAME]: batch }
-        }));
+    if ((remaining.Count || 0) > 0 || (remaining.Items || []).length > 0) {
+        console.log(`[DELETE ALL INCOMPLETE] scanned=${items.length} deleted=${deleted} remaining=1+`);
+        throw new Error("Delete all incomplete");
     }
-
-    // 握りつぶさないための固定文字列。件数の食い違いはここでしか見えない。
-    // CLAUDE.md §2.55 に合わせ、メトリクスフィルタを張れる形にしておく。
-    const deleted = batches.reduce((n, b) => n + b.length, 0);
     console.log(`[DELETE ALL] scanned=${items.length} deleted=${deleted}`);
-    if (deleted !== items.length) {
-        console.log(`[DELETE ALL INCOMPLETE] scanned=${items.length} deleted=${deleted}`);
-    }
     return deleted;
 }
 
