@@ -79,15 +79,24 @@ async function getOrCreateProfile(userId, dependencies = {}) {
     console.log(`Invite accepted via ${assigned.via}`);
 
     const profile = createDefaultProfile(userId, now(), assigned.householdId);
-    await db.send(new PutCommand({
-        TableName: USERS_TABLE,
-        Item: profile,
-        ConditionExpression: "attribute_not_exists(userId)"
-    })).catch(async (error) => {
-        // Another first request may have created the profile concurrently.
+    try {
+        await db.send(new PutCommand({
+            TableName: USERS_TABLE,
+            Item: profile,
+            ConditionExpression: "attribute_not_exists(userId)"
+        }));
+        return profile;
+    } catch (error) {
         if (error.name !== "ConditionalCheckFailedException") throw error;
-    });
-    return profile;
+        // A concurrent request won. Its persisted household is authoritative.
+        const existing = await db.send(new GetCommand({
+            TableName: USERS_TABLE,
+            Key: { userId },
+            ConsistentRead: true
+        }));
+        if (!existing.Item) throw error;
+        return existing.Item;
+    }
 }
 
 export function createHandler(dependencies = {}) {

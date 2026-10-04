@@ -20,6 +20,7 @@ import {
     parseInviteAssignments,
     resolveInvitedHousehold,
 } from "../backend/invite-assignments.mjs";
+import { createHandler } from "../backend/index-mvp.mjs";
 
 const DEFAULT_HOUSEHOLD = "household:gutpacer-default";
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
@@ -155,4 +156,46 @@ test("招待コードは前方一致や空文字で通らない", () => {
         });
         assert.equal(resolved, null, `"${code}" が通ってはいけない`);
     }
+});
+
+test("同時作成で負けた要求は保存済みプロフィールの世帯で記録を読む", async () => {
+    const queries = [];
+    const profileReadOptions = [];
+    let profileReads = 0;
+    const db = {
+        async send(command) {
+            if (command.constructor.name === "GetCommand") {
+                profileReads += 1;
+                profileReadOptions.push(command.input.ConsistentRead);
+                return profileReads === 1
+                    ? {}
+                    : { Item: { userId: "U-race", householdId: "household:bbb" } };
+            }
+            if (command.constructor.name === "PutCommand") {
+                const error = new Error("Already created by another request");
+                error.name = "ConditionalCheckFailedException";
+                throw error;
+            }
+            if (command.constructor.name === "QueryCommand") {
+                queries.push(command.input.ExpressionAttributeValues[":userId"]);
+                return { Items: [] };
+            }
+            throw new Error(`Unexpected command: ${command.constructor.name}`);
+        }
+    };
+    const handler = createHandler({
+        client: db,
+        authenticate: async () => ({ userId: "U-race" }),
+        inviteAssignments: assignmentsFor({ [sha256("code-a")]: "household:aaa" }),
+    });
+
+    const response = await handler({
+        requestContext: { http: { method: "GET" } },
+        headers: { "X-Invite-Code": "code-a" },
+    });
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(JSON.parse(response.body).profile.householdId, "household:bbb");
+    assert.deepEqual(queries, ["household:bbb"]);
+    assert.deepEqual(profileReadOptions, [undefined, true]);
 });
