@@ -31,7 +31,11 @@ flowchart LR
 - フロントエンドは静的HTML/CSS/JavaScriptで、S3から配信する。
 - API Lambdaは `X-Pin` ヘッダーで認証する。現状のPIN認証は一家庭向けの暫定構成である。
 - 通知LambdaはEventBridgeからJSTの朝に起動し、排便「あり」の記録間隔を確認して、設定済みの世帯へLINE通知を送る。
-- DynamoDBはPITRを有効化済み。LambdaとDynamoDBは `us-east-1` にある。
+- LambdaとDynamoDBは `ap-northeast-1`（東京）にある。2026-08-28に `us-east-1` から移設した。
+- DynamoDBはPITRと削除保護を有効化済み（東京の5テーブル: `gutpacer-logs` / `gutpacer-logs-v2` /
+  `gutpacer-settings` / `gutpacer-users` / `GutPacerMetrics`。2026-09-16に有効化して読み取りで確認）。
+- ⚠️ 配信中の `frontend/config.js` はまだ旧リージョンのFunction URLを指している。
+  切り替えはこのファイルを東京のURLへ向けたときに起きる。それまで本番の読み書きは `us-east-1` のまま。
 - `frontend/config.js` はデプロイ環境固有のため、Git管理しない。
 
 ## 3. 複数世帯向けの未公開構成案
