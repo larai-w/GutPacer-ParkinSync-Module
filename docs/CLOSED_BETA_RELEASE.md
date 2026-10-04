@@ -10,6 +10,21 @@ general availability.
   onboarding code, which is compared to `INVITE_CODE_HASH`, or be explicitly pre-registered through
   `INVITED_USER_IDS`. Other valid LINE users receive `403 Invite required` without a profile being
   created. The plaintext onboarding code is not committed or stored in the browser.
+- **Each invitation carries its own household.** `INVITE_ASSIGNMENTS` maps an invitation to the
+  household the new profile joins, so two invited families never share one record boundary:
+
+  ```json
+  {
+    "codes": { "<sha256 of the onboarding code>": "household:<id>" },
+    "users": { "<LINE user id>": "household:<id>" }
+  }
+  ```
+
+  An invitation with **no assignment is refused** (`403 Invite required`); it is never placed in the
+  default household. `INVITE_CODE_HASH` and `INVITED_USER_IDS` still work and still join the default
+  household, so the existing single household is unaffected. A malformed `INVITE_ASSIGNMENTS` is
+  treated as empty rather than crashing the function, which leaves only the legacy routes working.
+  Household ids must match `household:<1–64 of A-Za-z0-9._:->` and must equal the consent subject.
 - All log operations derive the partition from the verified subject.
 - Existing single-household records are copied without overwriting any record already created in
   the v2 table; legacy tables remain available for rollback.

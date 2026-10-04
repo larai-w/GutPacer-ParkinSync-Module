@@ -18,6 +18,18 @@ import test from "node:test";
 const WORKFLOW = ".github/workflows/deploy-api.yml";
 const ENTRY = "backend/index.mjs";
 
+test("closed-beta API packages every local module imported by its handler", () => {
+    const source = readFileSync(".github/workflows/deploy-closed-beta.yml", "utf8");
+    const block = source.split("- name: Package closed-beta API")[1]?.split("- name: Deploy development API")[0];
+    assert.ok(block, "Closed-beta API packaging step is missing");
+    const copies = new Map([...block.matchAll(/cp\s+(backend\/[\w.-]+\.mjs)\s+(package\/[\w.-]+\.mjs)/g)]
+        .map((match) => [match[1], match[2]]));
+    assert.equal(copies.get("backend/index-mvp.mjs"), "package/index.mjs");
+    for (const module of transitiveLocalModules("backend/index-mvp.mjs")) {
+        assert.equal(copies.get(module), module.replace(/^backend\//, "package/"), `${module} missing from closed-beta API package`);
+    }
+});
+
 /** ファイル内の相対 import を集める（複数行 import にも対応）。 */
 function relativeImports(file) {
     const src = readFileSync(file, "utf8");
