@@ -8,6 +8,7 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
+import { runInNewContext } from "node:vm";
 
 import {
   DELETE_ALL_CONFIRMATION,
@@ -123,6 +124,77 @@ const BACKEND = readFileSync(
   join(dirname(fileURLToPath(import.meta.url)), "..", "backend", "index.mjs"),
   "utf8",
 );
+
+function isolatedDeleteAll(send, messages = []) {
+  const start = BACKEND.indexOf("async function deleteAllLogs()");
+  const end = BACKEND.indexOf("\n}\n\nasync function saveRecordTimeMetric", start);
+  assert.ok(start >= 0 && end > start, "deleteAllLogs body is missing");
+  class QueryCommand { constructor(input) { this.input = input; this.kind = "query"; } }
+  class BatchWriteCommand { constructor(input) { this.input = input; this.kind = "batch"; } }
+  return runInNewContext(`(${BACKEND.slice(start, end + 2)})`, {
+    docClient: { send }, QueryCommand, BatchWriteCommand,
+    TABLE_NAME: "gutpacer-logs-v2", HOUSEHOLD_ID: "household:test",
+    buildDeleteAllBatches,
+    console: { log: (message) => messages.push(message) },
+  });
+}
+
+test("全件削除はQueryの次ページまで読み、全キーを削除する", async () => {
+  const queried = [];
+  const deleted = [];
+  const deleteAll = isolatedDeleteAll(async (command) => {
+    if (command.kind === "query") {
+      queried.push(command.input);
+      if (queried.length === 1) return {
+        Items: [{ userId: "household:test", fullDate: "2026-10-01" }],
+        LastEvaluatedKey: { userId: "household:test", fullDate: "2026-10-01" },
+      };
+      if (queried.length === 2) return {
+        Items: [{ userId: "household:test", fullDate: "2026-10-02" }],
+      };
+      return { Items: [] };
+    }
+    deleted.push(...command.input.RequestItems["gutpacer-logs-v2"].map((item) => item.DeleteRequest.Key.fullDate));
+    return {};
+  });
+
+  assert.equal(await deleteAll(), 2);
+  assert.deepEqual(deleted, ["2026-10-01", "2026-10-02"]);
+  assert.deepEqual(queried[1].ExclusiveStartKey, {
+    userId: "household:test", fullDate: "2026-10-01",
+  });
+  assert.equal(queried[2].ConsistentRead, true);
+  assert.equal(queried[2].Limit, 1);
+});
+
+test("BatchWriteの未処理項目を削除成功と数えない", async () => {
+  const messages = [];
+  const deleteAll = isolatedDeleteAll(async (command) => {
+    if (command.kind === "query") return {
+      Items: [{ userId: "household:test", fullDate: "2026-10-01" }],
+    };
+    return { UnprocessedItems: command.input.RequestItems };
+  }, messages);
+
+  await assert.rejects(deleteAll(), /incomplete/i);
+  assert.ok(messages.some((message) => message.includes("[DELETE ALL INCOMPLETE]")));
+});
+
+test("削除後に同じ世帯の記録が残れば成功を返さない", async () => {
+  const messages = [];
+  let queries = 0;
+  const deleteAll = isolatedDeleteAll(async (command) => {
+    if (command.kind === "query") {
+      queries += 1;
+      return { Items: [{ userId: "household:test", fullDate: "2026-10-01" }] };
+    }
+    return {};
+  }, messages);
+
+  await assert.rejects(deleteAll(), /incomplete/i);
+  assert.equal(queries, 2);
+  assert.ok(messages.some((message) => message.includes("[DELETE ALL INCOMPLETE]")));
+});
 
 test("記録テーブルを Scan しない（世帯を越えて読まない）", () => {
   // TABLE_NAME を対象にした Scan が1つでもあってはいけない。
