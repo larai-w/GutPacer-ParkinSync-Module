@@ -118,7 +118,8 @@ async function awsChecks() {
     for (const functionName of ["gutpacer-mvp-dev", "gutpacer-notifier"]) {
         await check(`Lambda health: ${functionName}`, () => {
             const output = awsJson([
-                "lambda", "get-function-configuration", "--function-name", functionName
+                "lambda", "get-function-configuration", "--function-name", functionName,
+                "--query", "{State:State,LastUpdateStatus:LastUpdateStatus}"
             ]);
             if (output.State !== "Active" || output.LastUpdateStatus !== "Successful") {
                 throw new Error(`state=${output.State}, lastUpdate=${output.LastUpdateStatus}`);
@@ -129,13 +130,14 @@ async function awsChecks() {
 
     await check("Notifier secret is configured", () => {
         const output = awsJson([
-            "lambda", "get-function-configuration", "--function-name", "gutpacer-notifier"
+            "lambda", "get-function-configuration", "--function-name", "gutpacer-notifier",
+            "--query", "{EnvironmentKeys:keys(Environment.Variables || `{}`)}"
         ]);
-        const keys = Object.keys(output.Environment?.Variables || {});
+        const keys = output.EnvironmentKeys || [];
         if (!keys.includes("LINE_CHANNEL_ACCESS_TOKEN")) {
             throw new Error("LINE_CHANNEL_ACCESS_TOKEN environment key is missing");
         }
-        return "environment key exists (value intentionally not read or printed)";
+        return "environment key exists (CLI output contains key names only; secret usability unverified)";
     });
 
     await check("Daily notifier schedule", () => {
